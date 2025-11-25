@@ -21,6 +21,11 @@ EMBEDDING_PATH = os.path.join(HF_CACHE_DIR, "BAAI/bge-small-zh-v1.5")
 # 向量库集合名称
 COLLECTION_NAME = "finance_rules"
 
+# Phoenix 监控配置
+PHOENIX_ENABLED = os.getenv("PHOENIX_ENABLED", "true").lower() not in {"false", "0", "no"}
+PHOENIX_PORT = int(os.getenv("PHOENIX_PORT", "6006"))
+PHOENIX_HOST = os.getenv("PHOENIX_HOST", "127.0.0.1")
+
 # 确保目录存在
 for path in [CACHE_DIR, RAG_SOURCE_DIR, VECTOR_DB_DIR]:
     path.mkdir(parents=True, exist_ok=True)

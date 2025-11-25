@@ -1,8 +1,10 @@
 import asyncio
+import os
 from datetime import datetime
+from importlib import import_module
 from llama_index.core.agent import ReActAgent
 from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.core import Settings
+from llama_index.core import Settings, set_global_handler
 
 from core.llm_factory import ModelFactory
 from tools.market_data import MarketDataManager
@@ -10,8 +12,47 @@ from tools.quant_analysis import QuantAnalyzer
 from tools.knowledge_base import FinancialKnowledgeBase
 from prompts.system_prompts import AGENT_SYSTEM_PROMPT, AGENT_CONTEXT_INJECTION
 from utils.logger import get_logger
+from config.settings import PHOENIX_ENABLED, PHOENIX_HOST, PHOENIX_PORT
 
 logger = get_logger("MainApp")
+
+
+def init_phoenix_monitor():
+    if not PHOENIX_ENABLED:
+        logger.info("Phoenix 监控已关闭。设置 PHOENIX_ENABLED=true 以启用。")
+        return None
+    try:
+        phoenix_module = import_module("phoenix")
+    except Exception as exc:
+        logger.warning(f"未安装 phoenix，跳过监控：{exc}")
+        return None
+
+    os.environ.setdefault("PHOENIX_HOST", PHOENIX_HOST)
+    os.environ.setdefault("PHOENIX_PORT", str(PHOENIX_PORT))
+    os.environ.setdefault("PHOENIX_GRPC_PORT", str(PHOENIX_GRPC_PORT))
+
+    try:
+        session = phoenix_module.launch_app()
+        session_name = getattr(session, "session_name", "N/A")
+        set_global_handler("arize_phoenix")
+        logger.info(
+            f"Phoenix 监控已启动：http://{PHOENIX_HOST}:{PHOENIX_PORT} (session={session_name})"
+        )
+        return session
+    except RuntimeError as exc:
+        logger.error(
+            "Phoenix 启动失败（可能为端口冲突：HTTP=%s, gRPC=%s）：%s",
+            PHOENIX_PORT,
+            PHOENIX_GRPC_PORT,
+            exc,
+        )
+        logger.info(
+            "可通过设置环境变量 PHOENIX_GRPC_PORT/PHOENIX_PORT 或 PHOENIX_ENABLED=false 来规避。"
+        )
+        return None
+    except Exception as exc:
+        logger.error(f"Phoenix 启动失败：{exc}")
+        return None
 
 
 def _get_llm_tokenizer():
@@ -39,6 +80,9 @@ def _count_tokens(text: str, tokenizer=None) -> int:
 async def main():
     # 1. 初始化模型
     ModelFactory.init_models()
+
+    # 启动 Phoenix 监控（如可用）
+    init_phoenix_monitor()
 
     # 2. 初始化工具
     logger.info("初始化工具箱...")
