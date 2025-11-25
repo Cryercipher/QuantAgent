@@ -2,6 +2,7 @@ import chromadb
 from llama_index.core import (
     SimpleDirectoryReader, VectorStoreIndex, StorageContext
 )
+from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from config.settings import RAG_SOURCE_DIR, VECTOR_DB_DIR, COLLECTION_NAME
@@ -75,6 +76,7 @@ class FinancialKnowledgeBase:
         self.db_client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
         self.collection = self.db_client.get_or_create_collection(COLLECTION_NAME)
         self._query_engine = None
+        self.node_parser = SentenceSplitter(chunk_size=512, chunk_overlap=96)
 
     def build_or_load_index(self):
         vector_store = ChromaVectorStore(chroma_collection=self.collection)
@@ -87,8 +89,11 @@ class FinancialKnowledgeBase:
                 return None
                 
             documents = SimpleDirectoryReader(str(RAG_SOURCE_DIR)).load_data()
-            index = VectorStoreIndex.from_documents(
-                documents, storage_context=storage_context, show_progress=True
+            nodes = self.node_parser.get_nodes_from_documents(documents)
+            index = VectorStoreIndex(
+                nodes,
+                storage_context=storage_context,
+                show_progress=True,
             )
         else:
             logger.info("加载已有索引...")

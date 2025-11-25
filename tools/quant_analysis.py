@@ -24,8 +24,9 @@ def _format_num(value: float, placeholder: str = "-", precision: int = 2) -> str
 class QuantAnalyzer:
     LOOKBACK_DAYS = 400
 
-    def __init__(self):
+    def __init__(self, cache_callback=None):
         self.data_manager = MarketDataManager()
+        self._cache_callback = cache_callback
 
     def _calc_max_drawdown(self, price_series: pd.Series) -> float:
         if price_series.empty:
@@ -113,8 +114,24 @@ class QuantAnalyzer:
         report_lines.append(
             "\n解读建议：结合 RAG 理论摘要与上述行情/风险指标，评估估值及仓位安排，必要时搭配止损和分批策略。"
         )
+        report = "\n".join(report_lines)
+        summary = (
+            f"{display_name} 收盘 {_format_num(latest.get('close'))} 元，"
+            f"年化波动 {_format_pct(risk['annual_vol'])}，"
+            f"最大回撤 {_format_pct(risk['max_drawdown'])}，"
+            f"VaR95 {_format_pct(risk['var_95'])}，"
+            f"GARCH波动 {_format_pct(risk['garch_vol'])}"
+        )
+        self._write_cache_entry(ts_code, summary, metadata={"name": display_name})
+        return report
 
-        return "\n".join(report_lines)
+    def _write_cache_entry(self, ts_code: str, summary: str, metadata=None):
+        if not self._cache_callback or not ts_code or not summary:
+            return
+        try:
+            self._cache_callback(ts_code, "量化", summary, metadata or {})
+        except Exception as exc:
+            logger.warning(f"缓存量化摘要失败: {exc}")
 
     def get_tool(self):
         return FunctionTool.from_defaults(

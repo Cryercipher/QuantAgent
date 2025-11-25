@@ -10,13 +10,15 @@ from utils.logger import get_logger, log_tool_io
 
 logger = get_logger("MarketDataTool")
 
+
 class MarketDataManager:
-    def __init__(self):
+    def __init__(self, cache_callback=None):
         ts.set_token(TUSHARE_TOKEN)
         self.pro = ts.pro_api()
         self.stock_list_cache_path = CACHE_DIR / "stock_basic.csv"
         self.price_cache_dir = CACHE_DIR / "prices"
         self.price_cache_dir.mkdir(parents=True, exist_ok=True)
+        self._cache_callback = cache_callback
 
     def _get_stock_list(self) -> pd.DataFrame:
         """获取股票列表（带文件缓存）"""
@@ -74,10 +76,25 @@ class MarketDataManager:
             latest_price = df.iloc[-1]['close']
             avg_price = df['close'].mean()
             
-            return (f"【{real_name} ({ts_code})】\n"
-                    f"最新价: {latest_price}\n"
-                    f"近{days_ago}日均价: {avg_price:.2f}\n"
-                    f"近期走势: {df.tail(5)['close'].tolist()}")
+            message = (
+                f"【{real_name} ({ts_code})】\n"
+                f"最新价: {latest_price}\n"
+                f"近{days_ago}日均价: {avg_price:.2f}\n"
+                f"近期走势: {df.tail(5)['close'].tolist()}"
+            )
+            recent = df.tail(3)["close"].tolist()
+            summary = (
+                f"{real_name} 最新价 {latest_price:.2f}，"
+                f"近{days_ago}日均价 {avg_price:.2f}，"
+                f"近3日收盘 {recent}"
+            )
+            self._write_cache_entry(
+                ts_code,
+                "行情",
+                summary,
+                metadata={"name": real_name}
+            )
+            return message
         except Exception as e:
             return f"数据查询异常: {str(e)}"
 
@@ -183,6 +200,14 @@ class MarketDataManager:
         if price_df.empty:
             return price_df
         return self.get_multi_window_stats(price_df, windows)
+
+    def _write_cache_entry(self, ts_code: str, category: str, summary: str, metadata=None):
+        if not self._cache_callback or not ts_code or not summary:
+            return
+        try:
+            self._cache_callback(ts_code, category, summary, metadata or {})
+        except Exception as exc:
+            logger.warning(f"缓存行情摘要失败: {exc}")
 
     def get_tool(self):
         return FunctionTool.from_defaults(

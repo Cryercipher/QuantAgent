@@ -27,7 +27,7 @@ class ModelFactory:
                 model_name=LLM_PATH,
                 tokenizer=tokenizer,
                 context_window=8192,
-                max_new_tokens=512,
+                max_new_tokens=768,
                 generate_kwargs={
                     "temperature": 0.1,
                     "do_sample": True,
