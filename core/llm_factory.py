@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig
 from llama_index.llms.huggingface import HuggingFaceLLM
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
@@ -21,7 +21,13 @@ class ModelFactory:
         # 2. Tokenizer & LLM
         logger.info(f"加载 LLM 模型: {LLM_PATH}")
         try:
-            tokenizer = AutoTokenizer.from_pretrained(LLM_PATH, trust_remote_code=True)
+            hf_config = AutoConfig.from_pretrained(LLM_PATH, trust_remote_code=True)
+            tokenizer = AutoTokenizer.from_pretrained(
+                LLM_PATH,
+                trust_remote_code=True,
+                use_fast=False,
+                config=hf_config,
+            )
             
             llm = HuggingFaceLLM(
                 model_name=LLM_PATH,

@@ -10,7 +10,7 @@ from core.llm_factory import ModelFactory
 from tools.market_data import MarketDataManager
 from tools.quant_analysis import QuantAnalyzer
 from tools.knowledge_base import FinancialKnowledgeBase
-from prompts.system_prompts import AGENT_SYSTEM_PROMPT, AGENT_CONTEXT_INJECTION
+from prompts.system_prompts import AGENT_SYSTEM_PROMPT
 from utils.logger import get_logger
 from config.settings import PHOENIX_ENABLED, PHOENIX_HOST, PHOENIX_PORT
 
@@ -29,7 +29,6 @@ def init_phoenix_monitor():
 
     os.environ.setdefault("PHOENIX_HOST", PHOENIX_HOST)
     os.environ.setdefault("PHOENIX_PORT", str(PHOENIX_PORT))
-    os.environ.setdefault("PHOENIX_GRPC_PORT", str(PHOENIX_GRPC_PORT))
 
     try:
         session = phoenix_module.launch_app()
@@ -141,10 +140,11 @@ async def main():
         return [s for s in snippets if s]
 
     knowledge_base = FinancialKnowledgeBase()
+    theory_tool = knowledge_base.get_tool()
     market_tool = MarketDataManager(cache_callback=cache_tool_result).get_tool()
     quant_tool = QuantAnalyzer(cache_callback=cache_tool_result).get_tool()
 
-    all_tools = [tool for tool in [market_tool, quant_tool] if tool]
+    all_tools = [tool for tool in [theory_tool, market_tool, quant_tool] if tool]
 
     # 3. 构建 Agent
     agent = ReActAgent(
@@ -152,37 +152,20 @@ async def main():
         llm=Settings.llm,
         verbose=True,
         system_prompt=AGENT_SYSTEM_PROMPT,
-        context=AGENT_CONTEXT_INJECTION,
         memory=ChatMemoryBuffer.from_defaults(token_limit=4096)
     )
 
     prompt_tokenizer = _get_llm_tokenizer()
 
-    conversation_history = []
-
-    def build_agent_input(user_query: str, rag_context: str) -> str:
+    def build_agent_input(user_query: str) -> str:
         sections = []
-        if conversation_history:
-            recent_history = conversation_history[-3:]
-            formatted_history = "\n".join(
-                f"👤用户: {turn['user']}\n🤖顾问: {turn['assistant']}" for turn in recent_history
-            )
-            sections.append("【历史对话】\n" + formatted_history)
         focus_hint = get_focus_hint()
         if focus_hint:
             sections.append("【上下文提醒】\n" + focus_hint)
-        if rag_context:
-            sections.append("【知识库检索摘要】\n" + rag_context)
         sections.append("【当前用户问题】\n" + user_query)
         cache_snippets = get_cache_snippets()
         if cache_snippets:
             sections.append("【历史工具缓存】\n" + "\n".join(cache_snippets))
-        sections.append(
-            "请严格遵循：\n"
-            "1) 先将【知识库检索摘要】概括为 1-2 条要点，放入“【理论依据】”，句中标注“知识库”；若只有默认风险准则，也必须引用默认要点再继续。\n"
-            "2) 若需要数据，调用 market_data_tool / quant_analysis_tool，并在“【数据洞察】”部分注明来源与结论。\n"
-            "3) 在“【顾问建议】”部分整合理论+数据，说明仓位/止损/风险提示，如信息不足需明确说明。"
-        )
         return "\n\n".join(sections)
 
     def build_fallback_response(user_query: str) -> str:
@@ -209,12 +192,10 @@ async def main():
             break
         
         try:
-            rag_context = knowledge_base.query_raw(user_input)
-
-            enriched_input = build_agent_input(user_input, rag_context)
+            enriched_input = build_agent_input(user_input)
             token_count = _count_tokens(enriched_input, tokenizer=prompt_tokenizer)
             logger.info(
-                f"[PromptStats] tokens={token_count} chars={len(enriched_input)} history_turns={len(conversation_history)}"
+                f"[PromptStats] tokens={token_count} chars={len(enriched_input)}"
             )
             try:
                 response = await asyncio.wait_for(agent.run(enriched_input), timeout=90)
@@ -224,16 +205,10 @@ async def main():
             except Exception as agent_exc:
                 logger.error(f"Agent 执行异常: {agent_exc}")
                 response = build_fallback_response(user_input)
-            conversation_history.append({"user": user_input, "assistant": str(response)})
-            if len(conversation_history) > 5:
-                conversation_history.pop(0)
             print(f"\n🤖 顾问: {response}")
         except Exception as e:
             logger.error(f"运行出错: {e}")
             fallback = build_fallback_response(user_input)
-            conversation_history.append({"user": user_input, "assistant": fallback})
-            if len(conversation_history) > 5:
-                conversation_history.pop(0)
             print(f"\n🤖 顾问: {fallback}")
 
 if __name__ == "__main__":
