@@ -1,8 +1,13 @@
 import logging
+import os
 import sys
 from functools import wraps
 import json
 
+
+def _resolve_log_level(default: str = "INFO") -> int:
+    level_name = os.getenv("QUANT_AGENT_LOG_LEVEL", default).upper()
+    return getattr(logging, level_name, getattr(logging, default, logging.INFO))
 
 def _truncate_text(text: str, limit: int = 300) -> str:
     if len(text) <= limit:
@@ -47,12 +52,14 @@ def log_tool_io(logger: logging.Logger, label: str, preview_chars: int = 300):
 def get_logger(name: str):
     logger = logging.getLogger(name)
     if not logger.handlers:
-        logger.setLevel(logging.INFO)
+        level = _resolve_log_level()
+        logger.setLevel(level)
         formatter = logging.Formatter(
             fmt="%(asctime)s - [%(levelname)s] - %(name)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S"
         )
         handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(level)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.propagate = False
