@@ -19,11 +19,10 @@ async def main():
     # 2. 初始化工具
     logger.info("初始化工具箱...")
     knowledge_base = FinancialKnowledgeBase()
-    rag_tool = knowledge_base.get_tool()
     market_tool = MarketDataManager().get_tool()
     quant_tool = QuantAnalyzer().get_tool()
     
-    all_tools = [tool for tool in [rag_tool, market_tool, quant_tool] if tool]
+    all_tools = [tool for tool in [market_tool, quant_tool] if tool]
 
     # 3. 构建 Agent
     agent = ReActAgent(
@@ -59,11 +58,7 @@ async def main():
             break
         
         try:
-            rag_context = ""
-            if rag_tool:
-                rag_context = knowledge_base.query_raw(user_input)
-            else:
-                logger.warning("financial_theory_tool 未初始化，跳过 RAG 检索。")
+            rag_context = knowledge_base.query_raw(user_input)
 
             enriched_input = build_agent_input(user_input, rag_context)
             response = await agent.run(enriched_input)
