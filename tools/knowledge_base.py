@@ -43,6 +43,7 @@ class FinancialKnowledgeBase:
     def __init__(self):
         self.db_client = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
         self.collection = self.db_client.get_or_create_collection(COLLECTION_NAME)
+        self._query_engine = None
 
     def build_or_load_index(self):
         vector_store = ChromaVectorStore(chroma_collection=self.collection)
@@ -66,14 +67,38 @@ class FinancialKnowledgeBase:
         
         return index
 
-    def get_tool(self):
+    def _ensure_query_engine(self):
+        if self._query_engine is not None:
+            return self._query_engine
+
         index = self.build_or_load_index()
         if not index:
+            logger.error("RAG 索引未准备好，无法提供查询功能。")
             return None
-            
+
         query_engine = index.as_query_engine(similarity_top_k=3)
-        logging_query_engine = _LoggingQueryEngine(query_engine)
-        
+        self._query_engine = _LoggingQueryEngine(query_engine)
+        return self._query_engine
+
+    def query_raw(self, query_text: str) -> str:
+        query_engine = self._ensure_query_engine()
+        if not query_engine:
+            return ""
+
+        try:
+            result = query_engine.query(query_text)
+            if hasattr(result, "response"):
+                return result.response or ""
+            return str(result)
+        except Exception as e:
+            logger.error(f"RAG 查询失败: {e}")
+            return ""
+
+    def get_tool(self):
+        logging_query_engine = self._ensure_query_engine()
+        if not logging_query_engine:
+            return None
+
         return QueryEngineTool(
             query_engine=logging_query_engine,
             metadata=ToolMetadata(

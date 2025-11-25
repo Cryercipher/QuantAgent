@@ -18,11 +18,12 @@ async def main():
 
     # 2. 初始化工具
     logger.info("初始化工具箱...")
+    knowledge_base = FinancialKnowledgeBase()
+    rag_tool = knowledge_base.get_tool()
     market_tool = MarketDataManager().get_tool()
     quant_tool = QuantAnalyzer().get_tool()
-    rag_tool = FinancialKnowledgeBase().get_tool()
     
-    all_tools = [tool for tool in [market_tool, quant_tool, rag_tool] if tool]
+    all_tools = [tool for tool in [rag_tool, market_tool, quant_tool] if tool]
 
     # 3. 构建 Agent
     agent = ReActAgent(
@@ -34,6 +35,22 @@ async def main():
         memory=ChatMemoryBuffer.from_defaults(token_limit=4096)
     )
 
+    conversation_history = []
+
+    def build_agent_input(user_query: str, rag_context: str) -> str:
+        sections = []
+        if conversation_history:
+            recent_history = conversation_history[-3:]
+            formatted_history = "\n".join(
+                f"👤用户: {turn['user']}\n🤖顾问: {turn['assistant']}" for turn in recent_history
+            )
+            sections.append("【历史对话】\n" + formatted_history)
+        if rag_context:
+            sections.append("【financial_theory_tool 检索摘要】\n" + rag_context)
+        sections.append("【当前用户问题】\n" + user_query)
+        sections.append("请先依据理论摘要建立即时观点，再视需要调用 market_data_tool 或 quant_analysis_tool，最后以专业但易懂的投资顾问口吻输出结论。")
+        return "\n\n".join(sections)
+
     # 4. 交互循环
     print("\n🤖 量化投资顾问已就绪 (输入 'exit' 退出)")
     while True:
@@ -42,7 +59,17 @@ async def main():
             break
         
         try:
-            response = await agent.run(user_input)
+            rag_context = ""
+            if rag_tool:
+                rag_context = knowledge_base.query_raw(user_input)
+            else:
+                logger.warning("financial_theory_tool 未初始化，跳过 RAG 检索。")
+
+            enriched_input = build_agent_input(user_input, rag_context)
+            response = await agent.run(enriched_input)
+            conversation_history.append({"user": user_input, "assistant": str(response)})
+            if len(conversation_history) > 5:
+                conversation_history.pop(0)
             print(f"\n🤖 顾问: {response}")
         except Exception as e:
             logger.error(f"运行出错: {e}")
