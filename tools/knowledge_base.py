@@ -28,7 +28,7 @@ class _LoggingQueryEngine:
             query_str = args[0]
         self._log_query(query_str or "")
         result = self._query_engine.query(*args, **kwargs)
-        self._log_source_nodes(result)
+        # self._log_source_nodes(result)
         snippet = getattr(result, "response", str(result))
         logger.info(f"[RAGResult] preview='{snippet}'")
         return result
@@ -39,7 +39,7 @@ class _LoggingQueryEngine:
             query_str = args[0]
         self._log_query(query_str or "")
         result = await self._query_engine.aquery(*args, **kwargs)
-        self._log_source_nodes(result)
+        # self._log_source_nodes(result)
         snippet = getattr(result, "response", str(result))
         logger.info(f"[RAGResult] preview='{snippet}'")
         return result

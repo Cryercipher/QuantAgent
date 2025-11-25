@@ -45,9 +45,15 @@ async def main():
             )
             sections.append("【历史对话】\n" + formatted_history)
         if rag_context:
-            sections.append("【financial_theory_tool 检索摘要】\n" + rag_context)
+            sections.append("【知识库检索摘要】\n" + rag_context)
         sections.append("【当前用户问题】\n" + user_query)
-        sections.append("请先依据理论摘要建立即时观点，再视需要调用 market_data_tool 或 quant_analysis_tool，最后以专业但易懂的投资顾问口吻输出结论。")
+        sections.append(
+            "请严格遵循：\n"
+            "1) 先将【知识库检索摘要】概括为至少两条要点，放入回答的“【理论依据】”部分，并在句中标注“知识库”。\n"
+            "2) 若需要数据，调用 market_data_tool / quant_analysis_tool，并在“【数据洞察】”部分注明来源与结论。\n"
+            "3) 在“【顾问建议】”部分整合理论+数据，说明仓位/止损/风险提示。\n"
+            "4) 若某工具没有信息，需在相应部分说明缺口。"
+        )
         return "\n\n".join(sections)
 
     # 4. 交互循环
