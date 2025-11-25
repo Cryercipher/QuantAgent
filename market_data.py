@@ -44,7 +44,12 @@ class MarketDataManager:
             return pd.DataFrame()
 
     @log_tool_io(logger, "market_data")
-    def get_stock_market_data(self, stock_name: str, days_ago: int = 30) -> str:
+    def get_stock_market_data(
+        self,
+        stock_name: str,
+        days_ago: int = 30,
+        ts_code: str | None = None,
+    ) -> str:
         """
         Tool Function: 查询股票近期行情。
         """
@@ -56,8 +61,12 @@ class MarketDataManager:
         if df_basic.empty:
             return "系统错误：无法获取股票列表。"
 
-        # 模糊匹配
-        matched = df_basic[df_basic['name'].str.contains(stock_name)]
+        matched = None
+        if ts_code:
+            matched = df_basic[df_basic['ts_code'] == ts_code]
+        if matched is None or matched.empty:
+            # 模糊匹配
+            matched = df_basic[df_basic['name'].str.contains(stock_name)]
         if matched.empty:
             return f"未找到股票：{stock_name}"
         

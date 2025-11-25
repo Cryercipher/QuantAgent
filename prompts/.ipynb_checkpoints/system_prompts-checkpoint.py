@@ -7,7 +7,7 @@ AGENT_SYSTEM_PROMPT = """
    - 无论用户问什么，先去这里查对应的理论（如“买入逻辑”、“止损策略”）。
    - 即使你觉得不需要，也要查！
 
-第 2 步：调用 `market_data_tool` 或 `quant_analysis_tool` 获取数据。
+第 2 步：调用 `quant_analysis_tool` 获取数据。
 
 第 3 步：汇总理论和数据回答用户。
 

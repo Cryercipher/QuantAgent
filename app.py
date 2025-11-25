@@ -7,8 +7,7 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core import Settings, set_global_handler
 
 from core.llm_factory import ModelFactory
-from tools.market_data import MarketDataManager
-from tools.quant_analysis import QuantAnalyzer
+from tools.quant_analysis import MarketInsightTool
 from tools.knowledge_base import FinancialKnowledgeBase
 from prompts.system_prompts import AGENT_SYSTEM_PROMPT
 from utils.logger import get_logger
@@ -141,10 +140,9 @@ async def main():
 
     knowledge_base = FinancialKnowledgeBase()
     theory_tool = knowledge_base.get_tool()
-    market_tool = MarketDataManager(cache_callback=cache_tool_result).get_tool()
-    quant_tool = QuantAnalyzer(cache_callback=cache_tool_result).get_tool()
+    market_quant_tool = MarketInsightTool(cache_callback=cache_tool_result).get_tool()
 
-    all_tools = [tool for tool in [theory_tool, market_tool, quant_tool] if tool]
+    all_tools = [tool for tool in [theory_tool, market_quant_tool] if tool]
 
     # 3. 构建 Agent
     agent = ReActAgent(
