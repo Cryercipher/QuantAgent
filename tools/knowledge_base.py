@@ -27,14 +27,45 @@ class _LoggingQueryEngine:
         if query_str is None and args:
             query_str = args[0]
         self._log_query(query_str or "")
-        return self._query_engine.query(*args, **kwargs)
+        result = self._query_engine.query(*args, **kwargs)
+        self._log_source_nodes(result)
+        snippet = getattr(result, "response", str(result))
+        logger.info(f"[RAGResult] preview='{snippet}'")
+        return result
 
     async def aquery(self, *args, **kwargs):
         query_str = kwargs.get("query_str")
         if query_str is None and args:
             query_str = args[0]
         self._log_query(query_str or "")
-        return await self._query_engine.aquery(*args, **kwargs)
+        result = await self._query_engine.aquery(*args, **kwargs)
+        self._log_source_nodes(result)
+        snippet = getattr(result, "response", str(result))
+        logger.info(f"[RAGResult] preview='{snippet}'")
+        return result
+
+    def _log_source_nodes(self, result):
+        source_nodes = getattr(result, "source_nodes", [])
+        for idx, node in enumerate(source_nodes, start=1):
+            text = getattr(node, "text", "") or ""
+            meta = getattr(node, "metadata", {}) or {}
+            score = getattr(node, "score", None)
+            node_id = getattr(node, "node_id", "n/a")
+            meta_items = []
+            for key in ("file_name", "source", "topic"):
+                if key in meta:
+                    meta_items.append(f"{key}={meta[key]}")
+            meta_str = ", ".join(meta_items) if meta_items else "-"
+
+            logger.info(
+                "\n".join(
+                    [
+                        f"[RAGChunk #{idx}] score={score} node_id={node_id} meta={meta_str}",
+                        text,
+                        "[EndChunk]",
+                    ]
+                )
+            )
 
     def __getattr__(self, item):
         return getattr(self._query_engine, item)

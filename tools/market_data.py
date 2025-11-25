@@ -6,7 +6,7 @@ import tushare as ts
 from llama_index.core.tools import FunctionTool
 
 from config.settings import TUSHARE_TOKEN, CACHE_DIR
-from utils.logger import get_logger
+from utils.logger import get_logger, log_tool_io
 
 logger = get_logger("MarketDataTool")
 
@@ -41,6 +41,7 @@ class MarketDataManager:
                 return pd.read_csv(self.stock_list_cache_path, dtype={'symbol': str})
             return pd.DataFrame()
 
+    @log_tool_io(logger, "market_data")
     def get_stock_market_data(self, stock_name: str, days_ago: int = 30) -> str:
         """
         Tool Function: 查询股票近期行情。

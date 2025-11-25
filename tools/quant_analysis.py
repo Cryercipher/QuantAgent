@@ -4,7 +4,7 @@ from arch import arch_model
 from llama_index.core.tools import FunctionTool
 
 from tools.market_data import MarketDataManager
-from utils.logger import get_logger
+from utils.logger import get_logger, log_tool_io
 
 logger = get_logger("QuantTool")
 
@@ -66,6 +66,7 @@ class QuantAnalyzer:
         risk["garch_vol"] = self._fit_garch_vol(returns)
         return risk
 
+    @log_tool_io(logger, "quant_analysis")
     def analyze_asset_risk(self, stock_name: str) -> str:
         """整合多窗口行情 + 风险指标，输出量化快照。"""
         logger.info(f"[ToolCall] quant_analysis | stock_name={stock_name}")
