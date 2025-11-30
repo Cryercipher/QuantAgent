@@ -11,6 +11,7 @@ from llama_index.core.memory import ChatMemoryBuffer
 from config.settings import PHOENIX_ENABLED, PHOENIX_HOST, PHOENIX_PORT
 from core.llm_factory import ModelFactory
 from prompts.system_prompts import AGENT_SYSTEM_PROMPT
+from tools.chart_visualizer import CandlestickChartTool
 from tools.knowledge_base import FinancialKnowledgeBase
 from tools.quant_analysis import MarketInsightTool
 from utils.logger import get_logger
@@ -98,8 +99,13 @@ class AgentRuntime:
     def _setup_agent(self):
         knowledge_base = FinancialKnowledgeBase()
         theory_tool = knowledge_base.get_tool()
-        market_tool = MarketInsightTool(cache_callback=self._cache_tool_result).get_tool()
-        tools = [tool for tool in [theory_tool, market_tool] if tool]
+        market_tool = MarketInsightTool(
+            cache_callback=self._cache_tool_result
+        ).get_tool()
+        chart_tool = CandlestickChartTool(
+            cache_callback=self._cache_tool_result
+        ).get_tool()
+        tools = [tool for tool in [theory_tool, market_tool, chart_tool] if tool]
         self._agent = ReActAgent(
             tools=tools,
             llm=Settings.llm,

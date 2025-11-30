@@ -10,7 +10,8 @@ const TOOL_NAME_MAP = {
   market_data: "行情快照",
   quant_analysis: "量化风险分析",
   quant_analysis_tool: "量化风险分析",
-  financial_theory_tool: "金融理论检索"
+  financial_theory_tool: "金融理论检索",
+  candlestick_chart_tool: "K线图生成"
 };
 
 const messages = [

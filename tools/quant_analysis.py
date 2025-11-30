@@ -1,5 +1,6 @@
 import asyncio
 import math
+import re
 import uuid
 from datetime import datetime, timedelta
 
@@ -8,6 +9,7 @@ import pandas as pd
 import tushare as ts
 from arch import arch_model
 from llama_index.core.tools import FunctionTool
+from pypinyin import lazy_pinyin
 
 from config.settings import TUSHARE_TOKEN, CACHE_DIR
 from utils.logger import get_logger, log_tool_io
@@ -31,19 +33,26 @@ class MarketDataManager:
         if self.stock_list_cache_path.exists():
             file_date = datetime.fromtimestamp(self.stock_list_cache_path.stat().st_mtime).strftime('%Y%m%d')
             if file_date == today_str:
-                return pd.read_csv(self.stock_list_cache_path, dtype={'symbol': str})
+                cached = pd.read_csv(self.stock_list_cache_path, dtype={'symbol': str})
+                return self._enrich_stock_df(cached)
 
         logger.info("刷新股票列表缓存...")
         try:
-            df = self.pro.query('stock_basic', exchange='', list_status='L',
-                              fields='ts_code,symbol,name,area,industry')
+            df = self.pro.query(
+                'stock_basic',
+                exchange='',
+                list_status='L',
+                fields='ts_code,symbol,name,fullname,enname,area,industry'
+            )
+            df = self._enrich_stock_df(df)
             df.to_csv(self.stock_list_cache_path, index=False)
             return df
         except Exception as e:
             logger.error(f"Tushare API 调用失败: {e}")
             if self.stock_list_cache_path.exists():
                 logger.warning("使用旧缓存数据降级运行")
-                return pd.read_csv(self.stock_list_cache_path, dtype={'symbol': str})
+                cached = pd.read_csv(self.stock_list_cache_path, dtype={'symbol': str})
+                return self._enrich_stock_df(cached)
             return pd.DataFrame()
 
     @log_tool_io(logger, "market_data")
@@ -63,17 +72,14 @@ class MarketDataManager:
             payload = "系统错误：无法获取股票列表。"
             return (payload, []) if include_raw else payload
 
-        matched = None
-        if ts_code:
-            matched = df_basic[df_basic['ts_code'] == ts_code]
-        if matched is None or matched.empty:
-            matched = df_basic[df_basic['name'].str.contains(stock_name)]
-        if matched.empty:
+        stock_query = ts_code or stock_name
+        stock_meta = self.resolve_stock(stock_query, df_basic=df_basic)
+        if not stock_meta:
             payload = f"未找到股票：{stock_name}"
             return (payload, []) if include_raw else payload
 
-        ts_code = matched.iloc[0]['ts_code']
-        real_name = matched.iloc[0]['name']
+        ts_code = stock_meta['ts_code']
+        real_name = stock_meta.get('name', stock_name)
 
         start_date = (datetime.now() - timedelta(days=days_ago)).strftime('%Y%m%d')
         end_date = datetime.now().strftime('%Y%m%d')
@@ -198,25 +204,51 @@ class MarketDataManager:
 
         return df
 
-    def resolve_stock(self, query: str) -> dict | None:
-        df_basic = self._get_stock_list()
-        if df_basic.empty:
+    def resolve_stock(self, query: str, df_basic: pd.DataFrame | None = None) -> dict | None:
+        df_basic = df_basic if df_basic is not None else self._get_stock_list()
+        if df_basic.empty or not query:
             return None
 
         query = query.strip()
+        query_ascii = _normalize_ascii(query)
 
-        exact_code = df_basic[
-            df_basic["ts_code"].str.contains(query, case=False, na=False, regex=False)
-        ]
-        if not exact_code.empty:
-            return exact_code.iloc[0].to_dict()
-
-        fuzzy = df_basic[
-            df_basic["name"].str.contains(query, na=False, regex=False)
-        ]
-        if fuzzy.empty:
+        def _match(mask):
+            matches = df_basic[mask]
+            if not matches.empty:
+                return matches.iloc[0].to_dict()
             return None
-        return fuzzy.iloc[0].to_dict()
+
+        for column in ("ts_code", "symbol"):
+            if column in df_basic.columns:
+                mask = df_basic[column].astype(str).str.contains(
+                    query, case=False, na=False, regex=False
+                )
+                result = _match(mask)
+                if result:
+                    return result
+
+        for column in ("name", "fullname"):
+            if column in df_basic.columns:
+                mask = df_basic[column].astype(str).str.contains(
+                    query, case=False, na=False
+                )
+                result = _match(mask)
+                if result:
+                    return result
+
+        if query_ascii:
+            if "name_pinyin" in df_basic.columns:
+                mask = df_basic["name_pinyin"].str.contains(query_ascii, na=False)
+                result = _match(mask)
+                if result:
+                    return result
+            if "enname_norm" in df_basic.columns:
+                mask = df_basic["enname_norm"].str.contains(query_ascii, na=False)
+                result = _match(mask)
+                if result:
+                    return result
+
+        return None
 
     def get_enriched_price_data(
         self, ts_code: str, lookback_days: int = 400, windows: list[int] | None = None
@@ -236,6 +268,19 @@ class MarketDataManager:
         except Exception as exc:
             logger.warning(f"缓存行情摘要失败: {exc}")
 
+    def _enrich_stock_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df is None or df.empty:
+            return df
+        if "name" in df.columns:
+            df["name_pinyin"] = df["name"].fillna("").apply(_to_pinyin)
+        if "enname" in df.columns:
+            df["enname_norm"] = df["enname"].fillna("").apply(_normalize_ascii)
+        else:
+            df["enname_norm"] = ""
+        if "symbol" in df.columns:
+            df["symbol"] = df["symbol"].astype(str)
+        return df
+
 
 def _format_pct(value: float, placeholder: str = "-" ) -> str:
     if value is None or pd.isna(value):
@@ -254,6 +299,18 @@ def _safe_float(value):
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _to_pinyin(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+    return "".join(lazy_pinyin(text)).lower()
+
+
+def _normalize_ascii(value: str) -> str:
+    if not isinstance(value, str):
+        return ""
+    return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
 class QuantAnalyzer:
