@@ -91,7 +91,7 @@ function renderToolPanel(toolRuns) {
     progressTrack.appendChild(progressBar);
     row.appendChild(progressTrack);
 
-    if (run.resultMarkdown) {
+    if (run.resultMarkdown || (run.resultChunks && run.resultChunks.length)) {
       const card = document.createElement("details");
       card.className = "tool-result-card";
       const summary = document.createElement("summary");
@@ -99,7 +99,14 @@ function renderToolPanel(toolRuns) {
       card.appendChild(summary);
       const body = document.createElement("div");
       body.className = "tool-result-body";
-      body.innerHTML = marked.parse(run.resultMarkdown);
+      if (run.resultChunks && run.resultChunks.length) {
+        body.appendChild(renderChunkList(run.resultChunks));
+      }
+      if (run.resultMarkdown) {
+        const markdownBlock = document.createElement("div");
+        markdownBlock.innerHTML = marked.parse(run.resultMarkdown);
+        body.appendChild(markdownBlock);
+      }
       card.appendChild(body);
       row.appendChild(card);
     }
@@ -107,6 +114,39 @@ function renderToolPanel(toolRuns) {
     panel.appendChild(row);
   });
   return panel;
+}
+
+function renderChunkList(chunks) {
+  const container = document.createElement("div");
+  container.className = "chunk-list";
+  chunks.forEach((chunk, idx) => {
+    const snippet = document.createElement("article");
+    snippet.className = "chunk-snippet";
+
+    const meta = document.createElement("div");
+    meta.className = "chunk-meta";
+    const metaParts = [];
+    const indexLabel = chunk.index || chunk.index === 0 ? chunk.index : idx + 1;
+    metaParts.push(`Chunk #${indexLabel}`);
+    if (chunk.metadata) {
+      const { file_name, title, topic } = chunk.metadata;
+      if (file_name) metaParts.push(file_name);
+      if (title && title !== file_name) metaParts.push(title);
+      if (topic) metaParts.push(topic);
+    }
+    if (typeof chunk.score === "number") {
+      metaParts.push(`score ${chunk.score.toFixed(2)}`);
+    }
+    meta.textContent = metaParts.join(" · ");
+
+    const textBlock = document.createElement("pre");
+    textBlock.textContent = chunk.text || "(空片段)";
+
+    snippet.appendChild(meta);
+    snippet.appendChild(textBlock);
+    container.appendChild(snippet);
+  });
+  return container;
 }
 
 function renderToolMonitor() {
@@ -164,6 +204,9 @@ function upsertToolRun(message, event) {
   }
   if (event.result) {
     run.resultMarkdown = event.result;
+  }
+  if (event.chunks) {
+    run.resultChunks = event.chunks;
   }
 }
 

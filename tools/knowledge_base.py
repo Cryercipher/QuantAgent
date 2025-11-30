@@ -1,5 +1,6 @@
 import chromadb
 import uuid
+from typing import Any, Dict, List
 from llama_index.core import (
     SimpleDirectoryReader, VectorStoreIndex, StorageContext
 )
@@ -54,6 +55,7 @@ class _LoggingQueryEngine:
                     "status": "succeeded",
                     "progress": 100,
                     "result": snippet[:2000],
+                    "chunks": self._extract_chunks(result),
                 }
             )
             return result
@@ -98,6 +100,7 @@ class _LoggingQueryEngine:
                     "status": "succeeded",
                     "progress": 100,
                     "result": snippet[:2000],
+                    "chunks": self._extract_chunks(result),
                 }
             )
             return result
@@ -136,6 +139,28 @@ class _LoggingQueryEngine:
                     ]
                 )
             )
+
+    def _extract_chunks(self, result) -> List[Dict[str, Any]]:
+        source_nodes = getattr(result, "source_nodes", []) or []
+        chunks: List[Dict[str, Any]] = []
+        for idx, node in enumerate(source_nodes, start=1):
+            text = (getattr(node, "text", "") or "")[:256]
+            metadata = self._sanitize_metadata(getattr(node, "metadata", {}) or {})
+            chunks.append(
+                {
+                    "index": idx,
+                    "node_id": getattr(node, "node_id", ""),
+                    "score": getattr(node, "score", None),
+                    "text": text,
+                    "metadata": metadata,
+                }
+            )
+        return chunks
+
+    @staticmethod
+    def _sanitize_metadata(meta: Dict[str, Any]) -> Dict[str, Any]:
+        allowed_keys = ("file_name", "source", "topic", "title")
+        return {key: meta[key] for key in allowed_keys if key in meta}
 
     def __getattr__(self, item):
         return getattr(self._query_engine, item)
