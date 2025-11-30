@@ -1,4 +1,5 @@
 import chromadb
+import uuid
 from llama_index.core import (
     SimpleDirectoryReader, VectorStoreIndex, StorageContext
 )
@@ -7,6 +8,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from config.settings import RAG_SOURCE_DIR, VECTOR_DB_DIR, COLLECTION_NAME
 from utils.logger import get_logger
+from utils.tool_events import publish_event
 
 logger = get_logger("RAGTool")
 
@@ -14,8 +16,9 @@ logger = get_logger("RAGTool")
 class _LoggingQueryEngine:
     """Light wrapper to log every query routed to the vector store."""
 
-    def __init__(self, query_engine):
+    def __init__(self, query_engine, tool_name: str = "financial_theory_tool"):
         self._query_engine = query_engine
+        self._tool_name = tool_name
 
     def _log_query(self, query_str: str):
         preview = (query_str or "").strip()
@@ -28,22 +31,88 @@ class _LoggingQueryEngine:
         if query_str is None and args:
             query_str = args[0]
         self._log_query(query_str or "")
-        result = self._query_engine.query(*args, **kwargs)
-        # self._log_source_nodes(result)
-        snippet = getattr(result, "response", str(result))
-        logger.info(f"[RAGResult] preview='{snippet}'")
-        return result
+        call_id = uuid.uuid4().hex
+        publish_event(
+            {
+                "type": "tool_status",
+                "call_id": call_id,
+                "tool": self._tool_name,
+                "status": "running",
+                "progress": 15,
+                "meta": {"query": (query_str or "")[:200]},
+            }
+        )
+        try:
+            result = self._query_engine.query(*args, **kwargs)
+            snippet = getattr(result, "response", str(result))
+            logger.info(f"[RAGResult] preview='{snippet}'")
+            publish_event(
+                {
+                    "type": "tool_result",
+                    "call_id": call_id,
+                    "tool": self._tool_name,
+                    "status": "succeeded",
+                    "progress": 100,
+                    "result": snippet[:2000],
+                }
+            )
+            return result
+        except Exception as exc:
+            publish_event(
+                {
+                    "type": "tool_status",
+                    "call_id": call_id,
+                    "tool": self._tool_name,
+                    "status": "failed",
+                    "progress": 100,
+                    "error": str(exc),
+                }
+            )
+            raise
 
     async def aquery(self, *args, **kwargs):
         query_str = kwargs.get("query_str")
         if query_str is None and args:
             query_str = args[0]
         self._log_query(query_str or "")
-        result = await self._query_engine.aquery(*args, **kwargs)
-        # self._log_source_nodes(result)
-        snippet = getattr(result, "response", str(result))
-        logger.info(f"[RAGResult] preview='{snippet}'")
-        return result
+        call_id = uuid.uuid4().hex
+        publish_event(
+            {
+                "type": "tool_status",
+                "call_id": call_id,
+                "tool": self._tool_name,
+                "status": "running",
+                "progress": 15,
+                "meta": {"query": (query_str or "")[:200]},
+            }
+        )
+        try:
+            result = await self._query_engine.aquery(*args, **kwargs)
+            snippet = getattr(result, "response", str(result))
+            logger.info(f"[RAGResult] preview='{snippet}'")
+            publish_event(
+                {
+                    "type": "tool_result",
+                    "call_id": call_id,
+                    "tool": self._tool_name,
+                    "status": "succeeded",
+                    "progress": 100,
+                    "result": snippet[:2000],
+                }
+            )
+            return result
+        except Exception as exc:
+            publish_event(
+                {
+                    "type": "tool_status",
+                    "call_id": call_id,
+                    "tool": self._tool_name,
+                    "status": "failed",
+                    "progress": 100,
+                    "error": str(exc),
+                }
+            )
+            raise
 
     def _log_source_nodes(self, result):
         source_nodes = getattr(result, "source_nodes", [])
@@ -113,7 +182,9 @@ class FinancialKnowledgeBase:
             return None
 
         query_engine = index.as_query_engine(similarity_top_k=3)
-        self._query_engine = _LoggingQueryEngine(query_engine)
+        self._query_engine = _LoggingQueryEngine(
+            query_engine, tool_name="financial_theory_tool"
+        )
         return self._query_engine
 
     def query_raw(self, query_text: str) -> str:

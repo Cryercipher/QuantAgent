@@ -345,7 +345,7 @@ class MarketInsightTool:
             data_manager=self.market_manager,
         )
 
-    @log_tool_io(logger, "market_quant")
+    @log_tool_io(logger, "quant_analysis_tool")
     def analyze_stock(self, stock_name: str, days_ago: int = 30) -> str:
         stock_meta = self.market_manager.resolve_stock(stock_name)
         if not stock_meta:
