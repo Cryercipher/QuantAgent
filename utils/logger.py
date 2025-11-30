@@ -1,8 +1,11 @@
+import json
 import logging
 import os
 import sys
+import uuid
 from functools import wraps
-import json
+
+from utils.tool_events import publish_event
 
 
 def _resolve_log_level(default: str = "INFO") -> int:
@@ -21,11 +24,25 @@ def log_tool_io(logger: logging.Logger, label: str, preview_chars: int = 300):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            call_id = uuid.uuid4().hex
             try:
                 args_preview = _truncate_text(str(args), preview_chars)
                 kwargs_preview = _truncate_text(str(kwargs), preview_chars)
                 logger.info(
                     f"[ToolInput] {label} args={args_preview} kwargs={kwargs_preview}"
+                )
+                publish_event(
+                    {
+                        "type": "tool_status",
+                        "call_id": call_id,
+                        "tool": label,
+                        "status": "running",
+                        "progress": 10,
+                        "meta": {
+                            "args": args_preview,
+                            "kwargs": kwargs_preview,
+                        },
+                    }
                 )
                 result = func(*args, **kwargs)
 
@@ -40,9 +57,29 @@ def log_tool_io(logger: logging.Logger, label: str, preview_chars: int = 300):
                 logger.info(
                     f"[ToolOutput] {label} result={_truncate_text(output_repr, preview_chars)}"
                 )
+                publish_event(
+                    {
+                        "type": "tool_result",
+                        "call_id": call_id,
+                        "tool": label,
+                        "status": "succeeded",
+                        "progress": 100,
+                        "result": _truncate_text(output_repr, 2000),
+                    }
+                )
                 return result
             except Exception as exc:
                 logger.error(f"[ToolError] {label} err={exc}")
+                publish_event(
+                    {
+                        "type": "tool_status",
+                        "call_id": call_id,
+                        "tool": label,
+                        "status": "failed",
+                        "progress": 100,
+                        "error": str(exc),
+                    }
+                )
                 raise
 
         return wrapper

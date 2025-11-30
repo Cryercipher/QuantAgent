@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QuantAgent | 企业级对话终端</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header">
+        <div class="brand-block">
+          <div class="logo-dot"></div>
+          <div>
+            <div class="brand-name">QuantAgent 控制台</div>
+            <div class="brand-subtitle">实时量化投顾 · 企业内测版</div>
+          </div>
+        </div>
+        <div class="session-meta">
+          <div class="status-pill online">已连接</div>
+          <div class="session-clock" id="session-clock">00:00</div>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="chat-pane">
+          <div class="system-banner">
+            <strong>风控提示：</strong> 投资建议仅供内部讨论，执行前请完成合规审批。
+          </div>
+          <div class="chat-feed" id="chat-feed"></div>
+          <div class="composer">
+            <textarea
+              id="chat-input"
+              rows="2"
+              placeholder="请描述您关注的标的、时间区间或想要的策略..."
+            ></textarea>
+            <div class="composer-actions">
+              <span class="shortcut-hint">Enter 发送 · Shift + Enter 换行</span>
+              <button id="send-btn" class="primary-btn">发送</button>
+            </div>
+          </div>
+        </section>
+        <aside class="insight-pane">
+          <div class="pane-card">
+            <h3>会话焦点</h3>
+            <p id="focus-hint">尚未聚焦具体标的。</p>
+          </div>
+          <div class="pane-card">
+            <h3>工具运行监控</h3>
+            <div id="tool-monitor" class="tool-monitor"></div>
+          </div>
+          <div class="pane-card">
+            <h3>快速操作</h3>
+            <button class="ghost-btn">生成今日盘前简报</button>
+            <button class="ghost-btn">上传企业调研纪要</button>
+            <button class="ghost-btn">导出对话纪要</button>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

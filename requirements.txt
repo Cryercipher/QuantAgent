@@ -10,3 +10,5 @@ pandas
 torch
 transformers
 tushare
+fastapi
+uvicorn[standard]
