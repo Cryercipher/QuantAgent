@@ -52,14 +52,16 @@ class MarketDataManager:
         stock_name: str,
         days_ago: int = 30,
         ts_code: str | None = None,
-    ) -> str:
+        include_raw: bool = False,
+    ) -> str | tuple[str, list[dict]]:
         logger.info(
             f"[ToolCall] market_data | stock_name={stock_name} | days_ago={days_ago}"
         )
         df_basic = self._get_stock_list()
 
         if df_basic.empty:
-            return "系统错误：无法获取股票列表。"
+            payload = "系统错误：无法获取股票列表。"
+            return (payload, []) if include_raw else payload
 
         matched = None
         if ts_code:
@@ -67,7 +69,8 @@ class MarketDataManager:
         if matched is None or matched.empty:
             matched = df_basic[df_basic['name'].str.contains(stock_name)]
         if matched.empty:
-            return f"未找到股票：{stock_name}"
+            payload = f"未找到股票：{stock_name}"
+            return (payload, []) if include_raw else payload
 
         ts_code = matched.iloc[0]['ts_code']
         real_name = matched.iloc[0]['name']
@@ -78,7 +81,8 @@ class MarketDataManager:
         try:
             df = self.pro.daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
             if df.empty:
-                return f"暂无 {real_name} 的行情数据。"
+                payload = f"暂无 {real_name} 的行情数据。"
+                return (payload, []) if include_raw else payload
 
             df = df.sort_values('trade_date')
             latest_price = df.iloc[-1]['close']
@@ -102,9 +106,28 @@ class MarketDataManager:
                 summary,
                 metadata={"name": real_name}
             )
-            return message
+            recent = (
+                df.tail(min(7, len(df)))
+                .copy()
+                .sort_values("trade_date")
+            )
+            raw_payload = []
+            for _, row in recent.iterrows():
+                raw_payload.append(
+                    {
+                        "date": pd.to_datetime(row["trade_date"]).strftime("%Y-%m-%d"),
+                        "open": _safe_float(row.get("open")),
+                        "close": _safe_float(row.get("close")),
+                        "high": _safe_float(row.get("high")),
+                        "low": _safe_float(row.get("low")),
+                        "volume": _safe_float(row.get("vol")),
+                    }
+                )
+
+            return (message, raw_payload) if include_raw else message
         except Exception as e:
-            return f"数据查询异常: {str(e)}"
+            payload = f"数据查询异常: {str(e)}"
+            return (payload, []) if include_raw else payload
 
     def get_price_frame(self, ts_code: str, start_date: str, end_date: str) -> pd.DataFrame:
         cache_file = self.price_cache_dir / f"{ts_code}_{start_date}_{end_date}.csv"
@@ -224,6 +247,13 @@ def _format_num(value: float, placeholder: str = "-", precision: int = 2) -> str
     if value is None or pd.isna(value):
         return placeholder
     return f"{value:.{precision}f}"
+
+
+def _safe_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class QuantAnalyzer:
@@ -356,11 +386,16 @@ class MarketInsightTool:
         ts_code = stock_meta["ts_code"]
         display_name = stock_meta.get("name", stock_name)
 
-        market_section = self.market_manager.get_stock_market_data(
+        market_payload = self.market_manager.get_stock_market_data(
             display_name,
             days_ago=days_ago,
             ts_code=ts_code,
+            include_raw=True,
         )
+        if isinstance(market_payload, tuple):
+            market_section, raw_bars = market_payload
+        else:
+            market_section, raw_bars = market_payload, []
         quant_section = self.quant_analyzer.analyze_asset_risk(display_name)
 
         segments = [
@@ -370,7 +405,31 @@ class MarketInsightTool:
             "【量化风险分析】",
             (quant_section or "暂无量化分析结果").strip(),
         ]
-        return "\n".join(seg for seg in segments if seg)
+        if raw_bars:
+            table_lines = [
+                "日期 | 开盘 | 收盘 | 最高 | 最低 | 成交量",
+                "-------------------------------------------"
+            ]
+            for bar in raw_bars:
+                volume = (
+                    f"{bar['volume']:.0f}" if bar.get("volume") is not None else "-"
+                )
+                line = (
+                    f"{bar['date']} | {_format_num(bar.get('open'))} | "
+                    f"{_format_num(bar.get('close'))} | {_format_num(bar.get('high'))} | "
+                    f"{_format_num(bar.get('low'))} | {volume}"
+                )
+                table_lines.append(line)
+            segments.extend(
+                [
+                    "",
+                    "【近7日原始行情】",
+                    "\n".join(table_lines),
+                ]
+            )
+
+        report = "\n".join(seg for seg in segments if seg)
+        return report, {"raw_bars": raw_bars}
 
     async def analyze_stock(self, stock_name: str, days_ago: int = 30) -> str:
         call_id = uuid.uuid4().hex
@@ -386,7 +445,7 @@ class MarketInsightTool:
         )
         loop = asyncio.get_running_loop()
         try:
-            result = await loop.run_in_executor(
+            report, extras = await loop.run_in_executor(
                 None, self._analyze_stock_sync, stock_name, days_ago
             )
         except Exception as exc:
@@ -402,6 +461,7 @@ class MarketInsightTool:
             )
             raise
 
+        raw_bars = (extras or {}).get("raw_bars", []) if isinstance(extras, dict) else []
         publish_event(
             {
                 "type": "tool_result",
@@ -409,10 +469,11 @@ class MarketInsightTool:
                 "tool": "quant_analysis_tool",
                 "status": "succeeded",
                 "progress": 100,
-                "result": result[:2000],
+                "result": report[:2000],
+                "raw_bars": raw_bars,
             }
         )
-        return result
+        return report
 
     def get_tool(self):
         return FunctionTool.from_defaults(
