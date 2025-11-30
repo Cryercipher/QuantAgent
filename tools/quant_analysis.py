@@ -1,4 +1,6 @@
+import asyncio
 import math
+import uuid
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -9,6 +11,7 @@ from llama_index.core.tools import FunctionTool
 
 from config.settings import TUSHARE_TOKEN, CACHE_DIR
 from utils.logger import get_logger, log_tool_io
+from utils.tool_events import publish_event
 
 logger = get_logger("QuantTool")
 
@@ -345,8 +348,7 @@ class MarketInsightTool:
             data_manager=self.market_manager,
         )
 
-    @log_tool_io(logger, "quant_analysis_tool")
-    def analyze_stock(self, stock_name: str, days_ago: int = 30) -> str:
+    def _analyze_stock_sync(self, stock_name: str, days_ago: int) -> str:
         stock_meta = self.market_manager.resolve_stock(stock_name)
         if not stock_meta:
             return f"未找到与“{stock_name}”匹配的标的，请输入更精确的名称或代码。"
@@ -370,9 +372,51 @@ class MarketInsightTool:
         ]
         return "\n".join(seg for seg in segments if seg)
 
+    async def analyze_stock(self, stock_name: str, days_ago: int = 30) -> str:
+        call_id = uuid.uuid4().hex
+        publish_event(
+            {
+                "type": "tool_status",
+                "call_id": call_id,
+                "tool": "quant_analysis_tool",
+                "status": "running",
+                "progress": 20,
+                "meta": {"stock": stock_name, "window": days_ago},
+            }
+        )
+        loop = asyncio.get_running_loop()
+        try:
+            result = await loop.run_in_executor(
+                None, self._analyze_stock_sync, stock_name, days_ago
+            )
+        except Exception as exc:
+            publish_event(
+                {
+                    "type": "tool_status",
+                    "call_id": call_id,
+                    "tool": "quant_analysis_tool",
+                    "status": "failed",
+                    "progress": 100,
+                    "error": str(exc),
+                }
+            )
+            raise
+
+        publish_event(
+            {
+                "type": "tool_result",
+                "call_id": call_id,
+                "tool": "quant_analysis_tool",
+                "status": "succeeded",
+                "progress": 100,
+                "result": result[:2000],
+            }
+        )
+        return result
+
     def get_tool(self):
         return FunctionTool.from_defaults(
-            fn=self.analyze_stock,
+            async_fn=self.analyze_stock,
             name="quant_analysis_tool",
             description=(
                 "整合行情快照与量化风险指标的综合分析工具。"
