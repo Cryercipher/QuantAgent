@@ -405,28 +405,6 @@ class MarketInsightTool:
             "【量化风险分析】",
             (quant_section or "暂无量化分析结果").strip(),
         ]
-        if raw_bars:
-            table_lines = [
-                "日期 | 开盘 | 收盘 | 最高 | 最低 | 成交量",
-                "-------------------------------------------"
-            ]
-            for bar in raw_bars:
-                volume = (
-                    f"{bar['volume']:.0f}" if bar.get("volume") is not None else "-"
-                )
-                line = (
-                    f"{bar['date']} | {_format_num(bar.get('open'))} | "
-                    f"{_format_num(bar.get('close'))} | {_format_num(bar.get('high'))} | "
-                    f"{_format_num(bar.get('low'))} | {volume}"
-                )
-                table_lines.append(line)
-            segments.extend(
-                [
-                    "",
-                    "【近7日原始行情】",
-                    "\n".join(table_lines),
-                ]
-            )
 
         report = "\n".join(seg for seg in segments if seg)
         return report, {"raw_bars": raw_bars}
