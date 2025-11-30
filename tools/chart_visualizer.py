@@ -19,6 +19,18 @@ from .quant_analysis import MarketDataManager  # noqa: E402
 
 logger = get_logger("ChartTool")
 
+# 配置中文字体 (解决 Matplotlib 中文乱码)
+try:
+    plt.rcParams["font.sans-serif"] = ["WenQuanYi Zen Hei"]
+    plt.rcParams["axes.unicode_minus"] = False
+    # 创建支持中文的 mplfinance 样式
+    MPF_STYLE = mpf.make_mpf_style(
+        base_mpf_style="yahoo", rc={"font.family": "WenQuanYi Zen Hei"}
+    )
+except Exception as exc:
+    logger.warning(f"字体配置异常: {exc}")
+    MPF_STYLE = "yahoo"
+
 
 class CandlestickChartTool:
     """Generate recent candlestick charts for a requested stock."""
@@ -109,7 +121,7 @@ class CandlestickChartTool:
             type="candle",
             mav=(5, 20),
             volume=True,
-            style="yahoo",
+            style=MPF_STYLE,
             figratio=(12, 6),
             figscale=1.15,
             title=f"{display_name} ({ts_code}) 近{len(window_df)}日K线",
