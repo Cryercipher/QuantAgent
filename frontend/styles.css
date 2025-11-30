@@ -290,6 +290,34 @@ body {
   font-family: "Inter", "Segoe UI", sans-serif;
 }
 
+.raw-bars-wrapper {
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.raw-bars-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.raw-bars-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.raw-bars-table th,
+.raw-bars-table td {
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.raw-bars-table tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .composer {
   margin-top: 20px;
   border: 1px solid var(--border);

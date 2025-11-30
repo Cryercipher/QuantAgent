@@ -91,7 +91,11 @@ function renderToolPanel(toolRuns) {
     progressTrack.appendChild(progressBar);
     row.appendChild(progressTrack);
 
-    if (run.resultMarkdown || (run.resultChunks && run.resultChunks.length)) {
+    if (
+      run.resultMarkdown ||
+      (run.resultChunks && run.resultChunks.length) ||
+      (run.rawBars && run.rawBars.length)
+    ) {
       const card = document.createElement("details");
       card.className = "tool-result-card";
       const summary = document.createElement("summary");
@@ -99,6 +103,9 @@ function renderToolPanel(toolRuns) {
       card.appendChild(summary);
       const body = document.createElement("div");
       body.className = "tool-result-body";
+      if (run.rawBars && run.rawBars.length) {
+        body.appendChild(renderRawBarsTable(run.rawBars));
+      }
       if (run.resultChunks && run.resultChunks.length) {
         body.appendChild(renderChunkList(run.resultChunks));
       }
@@ -114,6 +121,58 @@ function renderToolPanel(toolRuns) {
     panel.appendChild(row);
   });
   return panel;
+}
+
+function renderRawBarsTable(bars) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "raw-bars-wrapper";
+  const table = document.createElement("table");
+  table.className = "raw-bars-table";
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["日期", "开盘", "收盘", "最高", "最低", "成交量"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  bars.forEach((bar) => {
+    const row = document.createElement("tr");
+    const fields = [
+      bar.date,
+      formatNumberCell(bar.open),
+      formatNumberCell(bar.close),
+      formatNumberCell(bar.high),
+      formatNumberCell(bar.low),
+      formatVolumeCell(bar.volume),
+    ];
+    fields.forEach((value) => {
+      const td = document.createElement("td");
+      td.textContent = value;
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  wrapper.appendChild(table);
+  return wrapper;
+}
+
+function formatNumberCell(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+  return value.toFixed(2);
+}
+
+function formatVolumeCell(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+  return Math.round(value).toLocaleString();
 }
 
 function renderChunkList(chunks) {
@@ -207,6 +266,9 @@ function upsertToolRun(message, event) {
   }
   if (event.chunks) {
     run.resultChunks = event.chunks;
+  }
+  if (event.raw_bars) {
+    run.rawBars = event.raw_bars;
   }
 }
 
