@@ -5,7 +5,9 @@ const focusHintEl = document.getElementById("focus-hint");
 const toolMonitorEl = document.getElementById("tool-monitor");
 const sessionClockEl = document.getElementById("session-clock");
 
-const API_BASE = window.QUANT_AGENT_API || "http://localhost:8000";
+// 自动推断 API 地址：如果当前页面是 localhost，则默认 localhost:8000
+// 如果是远程 IP，则尝试连接同 IP 的 8000 端口
+const API_BASE = window.QUANT_AGENT_API || `http://${window.location.hostname}:8000`;
 const TOOL_NAME_MAP = {
   market_data: "行情快照",
   quant_analysis: "量化风险分析",
@@ -49,6 +51,11 @@ function renderMessages() {
     body.innerHTML = marked.parse(markdown);
     wrapper.appendChild(body);
 
+    const chartGallery = renderInlineCharts(msg);
+    if (chartGallery) {
+      wrapper.appendChild(chartGallery);
+    }
+
     if (msg.role === "assistant" && msg.status === "running") {
       const spinner = document.createElement("div");
       spinner.className = "spinner";
@@ -62,6 +69,73 @@ function renderMessages() {
     chatFeed.appendChild(wrapper);
   });
   chatFeed.scrollTop = chatFeed.scrollHeight;
+}
+
+function renderInlineCharts(msg) {
+  if (msg.role !== "assistant") {
+    return null;
+  }
+
+  const collected = [];
+  const seenIds = new Set();
+  if (Array.isArray(msg.inlineCharts)) {
+    msg.inlineCharts.forEach((payload) => {
+      collected.push(payload);
+      if (payload && typeof payload === "object" && payload.id) {
+        seenIds.add(payload.id);
+      }
+    });
+  }
+
+  if (!collected.length && Array.isArray(msg.toolRuns)) {
+    msg.toolRuns.forEach((run) => {
+      const isChartTool = run.toolId === "candlestick_chart_tool";
+      const hasAsset = run.chartId || run.chartData;
+      if (!isChartTool || !hasAsset) {
+        return;
+      }
+      if (run.chartId && seenIds.has(run.chartId)) {
+        return;
+      }
+      collected.push({
+        id: run.chartId,
+        title: run.chartTitle || run.displayName || "K线图",
+        interval: run.chartInterval,
+        dataUri: run.chartData,
+      });
+      if (run.chartId) {
+        seenIds.add(run.chartId);
+      }
+    });
+  }
+
+  if (!collected.length) {
+    return null;
+  }
+
+  console.log("Rendering inline charts:", collected); // Debug log
+
+  const gallery = document.createElement("div");
+  gallery.className = "inline-chart-gallery";
+  collected.forEach((chartPayload) => {
+    if (typeof chartPayload === "string") {
+      const fallback = document.createElement("div");
+      fallback.className = "chart-card";
+      fallback.innerHTML = marked.parse(chartPayload);
+      gallery.appendChild(fallback);
+      return;
+    }
+    gallery.appendChild(
+      createChartElement({
+        chartId: chartPayload.id,
+        title: chartPayload.title,
+        interval: chartPayload.interval,
+        dataUri: chartPayload.dataUri,
+      })
+    );
+  });
+
+  return gallery;
 }
 
 function renderToolPanel(toolRuns) {
@@ -95,7 +169,8 @@ function renderToolPanel(toolRuns) {
     if (
       run.resultMarkdown ||
       (run.resultChunks && run.resultChunks.length) ||
-      (run.rawBars && run.rawBars.length)
+      (run.rawBars && run.rawBars.length) ||
+      run.chartId
     ) {
       const card = document.createElement("details");
       card.className = "tool-result-card";
@@ -110,6 +185,16 @@ function renderToolPanel(toolRuns) {
       if (run.resultChunks && run.resultChunks.length) {
         body.appendChild(renderChunkList(run.resultChunks));
       }
+      if (run.chartId) {
+        body.appendChild(
+          createChartElement({
+            chartId: run.chartId,
+            title: run.chartTitle,
+            interval: run.chartInterval,
+            dataUri: run.chartData,
+          })
+        );
+      }
       if (run.resultMarkdown) {
         const markdownBlock = document.createElement("div");
         markdownBlock.innerHTML = marked.parse(run.resultMarkdown);
@@ -122,6 +207,33 @@ function renderToolPanel(toolRuns) {
     panel.appendChild(row);
   });
   return panel;
+}
+
+function createChartElement({ chartId, title, interval, dataUri }) {
+  const card = document.createElement("div");
+  card.className = "chart-card";
+  const imgSrc = dataUri || buildChartUrl(chartId);
+  console.log("Creating chart element:", { chartId, imgSrc }); // Debug log
+  if (imgSrc) {
+    const img = document.createElement("img");
+    img.src = imgSrc;
+    img.alt = title || "K线图";
+    img.onerror = (e) => console.error("Image load failed:", imgSrc, e); // Debug log
+    card.appendChild(img);
+  }
+  if (interval) {
+    const caption = document.createElement("p");
+    caption.textContent = interval;
+    card.appendChild(caption);
+  }
+  return card;
+}
+
+function buildChartUrl(chartId) {
+  if (!chartId) {
+    return "";
+  }
+  return `${API_BASE}/api/charts/${chartId}`;
 }
 
 function renderRawBarsTable(bars) {
@@ -265,6 +377,15 @@ function upsertToolRun(message, event) {
   if (event.result) {
     run.resultMarkdown = event.result;
   }
+  if (event.chart_id) {
+    run.chartId = event.chart_id;
+    run.chartInterval = event.interval;
+    const name = event.metadata && event.metadata.name;
+    run.chartTitle = name || run.displayName;
+  }
+  if (event.chart_data) {
+    run.chartData = `data:image/png;base64,${event.chart_data}`;
+  }
   if (event.chunks) {
     run.resultChunks = event.chunks;
   }
@@ -339,6 +460,7 @@ function processSSEBuffer(buffer, assistantMsg, userText) {
 }
 
 function handleServerEvent(event, assistantMsg) {
+  console.log("Event received:", event.type, event); // Debug log
   switch (event.type) {
     case "status":
       assistantMsg.content = "请求已受理，正在调度模型...";
@@ -348,7 +470,25 @@ function handleServerEvent(event, assistantMsg) {
       assistantMsg.content = "智能体正在调用工具...";
       break;
     case "tool_result":
+      console.log("Tool result:", event); // Debug log
       upsertToolRun(assistantMsg, event);
+      if (event.tool === "candlestick_chart_tool" && (event.chart_id || event.result)) {
+        assistantMsg.inlineCharts = assistantMsg.inlineCharts || [];
+        const dataUri = event.chart_data ? `data:image/png;base64,${event.chart_data}` : null;
+        if (event.chart_id) {
+          console.log("Adding inline chart:", event.chart_id); // Debug log
+          const chartTitle = event.metadata && event.metadata.name ? event.metadata.name : "K线图";
+          assistantMsg.inlineCharts.push({
+            id: event.chart_id,
+            title: chartTitle,
+            interval: event.interval,
+            dataUri,
+          });
+        } else if (event.result) {
+          // Fallback for markdown result if needed, though we prefer structured data
+          // assistantMsg.inlineCharts.push(event.result);
+        }
+      }
       break;
     case "message_chunk":
       assistantMsg.content = (assistantMsg.content || "") + (event.content || "");
@@ -380,7 +520,8 @@ async function dispatchToBackend(userText) {
     content: "已接收问题，正在分析上下文...",
     timestamp: Date.now(),
     status: "running",
-    toolRuns: []
+    toolRuns: [],
+    inlineCharts: []
   };
   messages.push(assistantMsg);
   renderMessages();

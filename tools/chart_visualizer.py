@@ -12,6 +12,7 @@ import mplfinance as mpf  # noqa: E402
 import pandas as pd  # noqa: E402
 from llama_index.core.tools import FunctionTool  # noqa: E402
 
+from config.settings import CHART_CACHE_DIR  # noqa: E402
 from utils.logger import get_logger  # noqa: E402
 from utils.tool_events import publish_event  # noqa: E402
 from .quant_analysis import MarketDataManager  # noqa: E402
@@ -26,7 +27,7 @@ class CandlestickChartTool:
         self.market_manager = MarketDataManager(cache_callback=cache_callback)
         self._cache_callback = cache_callback
 
-    def generate_candlestick_chart(
+    async def generate_candlestick_chart(
         self, stock_name: str, lookback_days: int = 60
     ) -> str:
         logger.info(
@@ -46,6 +47,15 @@ class CandlestickChartTool:
             }
         )
 
+        # 使用 asyncio.to_thread 运行阻塞的绘图逻辑，同时保留 contextvars
+        import asyncio
+        return await asyncio.to_thread(
+            self._generate_chart_sync, call_id, stock_name, lookback_days
+        )
+
+    def _generate_chart_sync(
+        self, call_id: str, stock_name: str, lookback_days: int
+    ) -> str:
         stock_meta = self.market_manager.resolve_stock(stock_name)
         if not stock_meta:
             error_msg = f"未找到与“{stock_name}”匹配的标的，无法绘制K线。"
@@ -110,14 +120,16 @@ class CandlestickChartTool:
         buffer = BytesIO()
         fig.savefig(buffer, format="png", dpi=180, bbox_inches="tight")
         plt.close(fig)
-        image_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+        png_bytes = buffer.getvalue()
+        # image_b64 = base64.b64encode(png_bytes).decode("ascii")
 
         interval_text = (
             f"区间：{window_df.index[0].date()} 至 {window_df.index[-1].date()}"
         )
-        markdown = (
-            f"![{display_name} K线](data:image/png;base64,{image_b64})\n\n" + interval_text
-        )
+        chart_id = self._persist_chart_image(ts_code, png_bytes)
+
+        # 仅在摘要中使用文本，避免将 Base64 放入 Markdown 导致 SSE 包过大
+        markdown = f"{display_name} K线图已生成（ID: {chart_id}）。\n\n{interval_text}"
 
         self._cache_chart_summary(ts_code, display_name, window_df)
         publish_event(
@@ -128,10 +140,24 @@ class CandlestickChartTool:
                 "status": "succeeded",
                 "progress": 100,
                 "result": markdown,
+                "chart_id": chart_id,
+                # "chart_data": image_b64,  # 移除 Base64 以减小 SSE 负载，前端将通过 /api/charts/{id} 加载
+                "interval": interval_text,
                 "metadata": {"ts_code": ts_code, "name": display_name},
             }
         )
         return f"{display_name} 的近期K线图已生成，可在图表面板查看。"
+
+    @staticmethod
+    def _persist_chart_image(ts_code: str, png_bytes: bytes) -> str:
+        sanitized = (ts_code or "chart").replace("/", "_").replace(".", "_")
+        chart_id = f"{sanitized}_{uuid.uuid4().hex}"
+        file_path = CHART_CACHE_DIR / f"{chart_id}.png"
+        try:
+            file_path.write_bytes(png_bytes)
+        except Exception as exc:
+            logger.warning(f"写入图表缓存失败: {exc}")
+        return chart_id
 
     @staticmethod
     def _emit_failure(call_id: str, error_msg: str):
@@ -152,8 +178,10 @@ class CandlestickChartTool:
         if not self._cache_callback or not ts_code or df.empty:
             return
         latest = df.iloc[-1]
+        # 兼容列名大小写
+        close_price = latest.get("Close") if "Close" in latest else latest.get("close")
         summary = (
-            f"{display_name} 近{len(df)}日K线已生成，最新收盘 {_format_num(latest.get('close'))} 元"
+            f"{display_name} 近{len(df)}日K线已生成，最新收盘 {_format_num(close_price)} 元"
         )
         try:
             self._cache_callback(

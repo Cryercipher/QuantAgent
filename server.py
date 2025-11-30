@@ -1,12 +1,14 @@
 import asyncio
 import json
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 
 from core.agent_runtime import runtime
+from config.settings import CHART_CACHE_DIR
 from utils.logger import get_logger
 from utils.tool_events import bind_queue, reset_queue
 
@@ -30,6 +32,16 @@ class ChatRequest(BaseModel):
 async def _startup_event():
     await runtime.ensure_ready()
     logger.info("QuantAgent API 已准备就绪。")
+
+
+@app.get("/api/charts/{chart_id}")
+async def get_chart(chart_id: str):
+    safe_name = Path(chart_id).name
+    file_path = CHART_CACHE_DIR / f"{safe_name}.png"
+    if not file_path.exists():
+        logger.warning(f"Chart not found: {file_path}")
+        raise HTTPException(status_code=404, detail="chart_not_found")
+    return FileResponse(file_path, media_type="image/png")
 
 
 @app.post("/api/chat")

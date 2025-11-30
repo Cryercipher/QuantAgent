@@ -10,6 +10,7 @@ TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "d47f91ee6571a468cd4fae2f739635126078
 # 路径配置
 DATA_DIR = BASE_DIR / "data"
 CACHE_DIR = DATA_DIR / "cache"
+CHART_CACHE_DIR = CACHE_DIR / "charts"
 RAG_SOURCE_DIR = DATA_DIR / "rules_text"
 VECTOR_DB_DIR = DATA_DIR / "chroma_db"
 
@@ -27,5 +28,5 @@ PHOENIX_PORT = int(os.getenv("PHOENIX_PORT", "6006"))
 PHOENIX_HOST = os.getenv("PHOENIX_HOST", "127.0.0.1")
 
 # 确保目录存在
-for path in [CACHE_DIR, RAG_SOURCE_DIR, VECTOR_DB_DIR]:
+for path in [CACHE_DIR, CHART_CACHE_DIR, RAG_SOURCE_DIR, VECTOR_DB_DIR]:
     path.mkdir(parents=True, exist_ok=True)

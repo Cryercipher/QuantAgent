@@ -260,6 +260,26 @@ body {
   font-size: 14px;
 }
 
+.inline-chart-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 100px; /* Ensure visibility */
+}
+
+.chart-card img {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+}
+
 .chunk-list {
   display: flex;
   flex-direction: column;

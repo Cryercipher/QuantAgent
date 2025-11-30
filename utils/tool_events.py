@@ -52,7 +52,13 @@ def _get_binding() -> Optional[_Binding]:
 def publish_event(event: dict[str, Any]):
     binding = _get_binding()
     if not binding:
-        _logger.debug("tool event dropped (no queue binding): %s", event.get("type"))
+        # 尝试从 thread_local 获取（兼容同步线程池）
+        stack = getattr(_thread_local, "queue_stack", [])
+        if stack:
+            binding = stack[-1]
+    
+    if not binding:
+        _logger.warning("tool event dropped (no queue binding): %s", event.get("type"))
         return
     payload = {
         **event,
