@@ -551,7 +551,7 @@ class MarketInsightTool:
 
     def get_search_tool(self):
         return FunctionTool.from_defaults(
-            fn=self.search_stock_info,
+            async_fn=self.search_stock_info,
             name="stock_search_tool",
             description=(
                 "股票代码/名称模糊搜索工具。"
@@ -560,9 +560,9 @@ class MarketInsightTool:
             ),
         )
 
-    def search_stock_info(self, query: str) -> str:
+    async def search_stock_info(self, query: str) -> str:
         """
-        搜索股票信息，返回匹配列表。
+        搜索股票信息，返回匹配列表 (Async wrapper)。
         """
         call_id = uuid.uuid4().hex
         publish_event(
@@ -577,52 +577,11 @@ class MarketInsightTool:
         )
         
         logger.info(f"[ToolCall] stock_search | query={query}")
+        loop = asyncio.get_running_loop()
         try:
-            df_basic = self.market_manager._get_stock_list()
-            if df_basic.empty:
-                raise Exception("无法获取股票列表")
-
-            query = query.strip()
-            if not query:
-                raise ValueError("搜索关键词为空")
-
-            matches = []
-            
-            # 1. 精确/包含匹配
-            mask = pd.Series(False, index=df_basic.index)
-            for col in ["ts_code", "symbol", "name", "fullname", "enname", "name_pinyin"]:
-                if col in df_basic.columns:
-                    mask |= df_basic[col].astype(str).str.contains(query, case=False, na=False)
-            
-            exact_hits = df_basic[mask].head(5)
-            for _, row in exact_hits.iterrows():
-                matches.append(f"{row['name']} ({row['ts_code']}) - {row.get('fullname', '')}")
-
-            # 2. 模糊匹配 (如果精确匹配少于3个)
-            if len(matches) < 3:
-                candidates = []
-                if "name" in df_basic.columns:
-                    candidates.extend(df_basic["name"].dropna().astype(str).tolist())
-                if "fullname" in df_basic.columns:
-                    candidates.extend(df_basic["fullname"].dropna().astype(str).tolist())
-                
-                # 使用 difflib 查找相似名称
-                # 降低阈值到 0.25 以适配 "九号电动车" vs "九号公司-WD" (score~0.33) 这种情况
-                fuzzy_names = difflib.get_close_matches(query, candidates, n=5, cutoff=0.25)
-                
-                for fname in fuzzy_names:
-                    # 反查对应的行
-                    fmask = (df_basic["name"] == fname) | (df_basic.get("fullname") == fname)
-                    frows = df_basic[fmask]
-                    for _, row in frows.iterrows():
-                        item = f"{row['name']} ({row['ts_code']}) - {row.get('fullname', '')}"
-                        if item not in matches:
-                            matches.append(item)
-
-            if not matches:
-                result_text = f"未找到与 '{query}' 相关的股票。请尝试使用更准确的名称。"
-            else:
-                result_text = f"找到以下相关股票，请根据需要选择准确的名称调用分析工具：\n" + "\n".join(matches[:10])
+            result_text = await loop.run_in_executor(
+                None, self._search_stock_info_sync, query
+            )
             
             publish_event(
                 {
@@ -648,3 +607,50 @@ class MarketInsightTool:
                 }
             )
             return f"搜索出错: {str(e)}"
+
+    def _search_stock_info_sync(self, query: str) -> str:
+        df_basic = self.market_manager._get_stock_list()
+        if df_basic.empty:
+            raise Exception("无法获取股票列表")
+
+        query = query.strip()
+        if not query:
+            raise ValueError("搜索关键词为空")
+
+        matches = []
+        
+        # 1. 精确/包含匹配
+        mask = pd.Series(False, index=df_basic.index)
+        for col in ["ts_code", "symbol", "name", "fullname", "enname", "name_pinyin"]:
+            if col in df_basic.columns:
+                mask |= df_basic[col].astype(str).str.contains(query, case=False, na=False)
+        
+        exact_hits = df_basic[mask].head(5)
+        for _, row in exact_hits.iterrows():
+            matches.append(f"{row['name']} ({row['ts_code']}) - {row.get('fullname', '')}")
+
+        # 2. 模糊匹配 (如果精确匹配少于3个)
+        if len(matches) < 3:
+            candidates = []
+            if "name" in df_basic.columns:
+                candidates.extend(df_basic["name"].dropna().astype(str).tolist())
+            if "fullname" in df_basic.columns:
+                candidates.extend(df_basic["fullname"].dropna().astype(str).tolist())
+            
+            # 使用 difflib 查找相似名称
+            # 降低阈值到 0.25 以适配 "九号电动车" vs "九号公司-WD" (score~0.33) 这种情况
+            fuzzy_names = difflib.get_close_matches(query, candidates, n=5, cutoff=0.25)
+            
+            for fname in fuzzy_names:
+                # 反查对应的行
+                fmask = (df_basic["name"] == fname) | (df_basic.get("fullname") == fname)
+                frows = df_basic[fmask]
+                for _, row in frows.iterrows():
+                    item = f"{row['name']} ({row['ts_code']}) - {row.get('fullname', '')}"
+                    if item not in matches:
+                        matches.append(item)
+
+        if not matches:
+            return f"未找到与 '{query}' 相关的股票。请尝试使用更准确的名称。"
+
+        return f"找到以下相关股票，请根据需要选择准确的名称调用分析工具：\n" + "\n".join(matches[:10])
