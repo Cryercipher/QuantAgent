@@ -51,3 +51,6 @@ python -m http.server 8080
 - `tools/`: 工具集（行情、RAG、绘图）。
 - `frontend/`: 前端静态资源。
 - `data/`: 数据存储（ChromaDB、缓存图表）。
+
+
+python scripts/cli_chat.py

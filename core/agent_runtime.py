@@ -58,7 +58,15 @@ def init_phoenix_monitor():
         return None
 
 
+import tiktoken
+
 def _get_llm_tokenizer():
+    # 优先尝试获取 tiktoken 编码器，默认为 cl100k_base (GPT-4/3.5)
+    try:
+        return tiktoken.get_encoding("cl100k_base")
+    except Exception:
+        pass
+        
     llm = getattr(Settings, "llm", None)
     if llm is None:
         return None
@@ -72,12 +80,29 @@ def _get_llm_tokenizer():
 def _count_tokens(text: str, tokenizer=None) -> int:
     if not text:
         return 0
+    
+    # 优先使用传入的 tokenizer (可能是 tiktoken encoding 对象)
     if tokenizer is not None:
         try:
-            return len(tokenizer.encode(text))
-        except Exception as exc:  # pragma: no cover - tokenizer edge cases
-            logger.warning("token 统计失败，使用近似值: %s", exc)
-    return max(1, len(text) // 2)
+            # tiktoken 对象有 encode 方法
+            if hasattr(tokenizer, "encode"):
+                return len(tokenizer.encode(text))
+            # 某些 HuggingFace tokenizer 可能是 callable
+            elif callable(tokenizer):
+                return len(tokenizer(text))
+        except Exception as exc:
+            logger.warning("token 统计失败，尝试降级: %s", exc)
+            
+    # 如果没有 tokenizer 或失败，尝试临时获取 tiktoken
+    try:
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text))
+    except Exception:
+        pass
+
+    # 最后兜底：粗略估算 (中文约 0.6-0.8 token/char, 英文约 0.25-0.3 token/char)
+    # 这里使用保守估计：字符数 / 1.5
+    return max(1, int(len(text) / 1.5))
 
 
 class AgentRuntime:
