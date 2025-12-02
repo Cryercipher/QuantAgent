@@ -14,7 +14,9 @@ const TOOL_NAME_MAP = {
   quant_analysis_tool: "量化风险分析",
   financial_theory_tool: "金融理论检索",
   candlestick_chart_tool: "K线图生成",
-  stock_search_tool: "股票模糊搜索"
+  stock_search_tool: "股票模糊搜索",
+  StockSearchTool: "股票模糊搜索",
+  stock_search: "股票模糊搜索"
 };
 
 const messages = [
@@ -358,6 +360,11 @@ function addUserMessage(text) {
 }
 
 function upsertToolRun(message, event) {
+  // Debug log to check tool name mapping
+  if (!TOOL_NAME_MAP[event.tool]) {
+    console.warn(`Tool name not found in map: '${event.tool}'. Available keys:`, Object.keys(TOOL_NAME_MAP));
+  }
+  
   message.toolRuns = message.toolRuns || [];
   let run = message.toolRuns.find((item) => item.callId === event.call_id);
   if (!run) {
