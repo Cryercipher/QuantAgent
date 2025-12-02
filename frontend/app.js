@@ -1,8 +1,8 @@
 const chatFeed = document.getElementById("chat-feed");
 const chatInput = document.getElementById("chat-input");
 const sendBtn = document.getElementById("send-btn");
-const focusHintEl = document.getElementById("focus-hint");
-const toolMonitorEl = document.getElementById("tool-monitor");
+// const focusHintEl = document.getElementById("focus-hint");
+// const toolMonitorEl = document.getElementById("tool-monitor");
 const sessionClockEl = document.getElementById("session-clock");
 
 // 自动推断 API 地址：如果当前页面是 localhost，则默认 localhost:8000
@@ -325,6 +325,8 @@ function renderChunkList(chunks) {
 }
 
 function renderToolMonitor() {
+  // 侧栏已移除，此函数不再需要更新 UI
+  /*
   const latestAssistant = [...messages]
     .reverse()
     .find((msg) => msg.role === "assistant" && msg.status === "running");
@@ -345,6 +347,7 @@ function renderToolMonitor() {
     row.appendChild(state);
     toolMonitorEl.appendChild(row);
   });
+  */
 }
 
 function addUserMessage(text) {
@@ -416,14 +419,15 @@ function statusToProgress(status) {
 }
 
 function updateFocusHint(entry) {
-  if (!entry) {
-    focusHintEl.textContent = "尚未聚焦具体标的。";
-    return;
-  }
-  const name = entry.name || entry.ts_code || "未知标的";
-  const code = entry.ts_code ? `（${entry.ts_code}）` : "";
-  const summary = entry.summary ? `\n${entry.summary}` : "";
-  focusHintEl.textContent = `目前聚焦：${name}${code}${summary ? `\n${summary}` : ""}`;
+  // 侧栏已移除，此函数不再需要更新 UI
+  // if (!entry) {
+  //   focusHintEl.textContent = "尚未聚焦具体标的。";
+  //   return;
+  // }
+  // const name = entry.name || entry.ts_code || "未知标的";
+  // const code = entry.ts_code ? `（${entry.ts_code}）` : "";
+  // const summary = entry.summary ? `\n${entry.summary}` : "";
+  // focusHintEl.textContent = `目前聚焦：${name}${code}${summary ? `\n${summary}` : ""}`;
 }
 
 async function streamChatResponse(userText, assistantMsg) {

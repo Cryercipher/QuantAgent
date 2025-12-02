@@ -92,13 +92,16 @@ body {
 
 .workspace {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
   padding: 24px 28px 32px;
 }
 
 .chat-pane {
+  flex: 1;
   background: var(--panel);
   border-radius: 18px;
   padding: 20px;
