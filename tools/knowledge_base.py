@@ -55,7 +55,7 @@ class _LoggingQueryEngine:
                     "tool": self._tool_name,
                     "status": "succeeded",
                     "progress": 100,
-                    "result": snippet[:2000],
+                    "result": "已检索到相关资料，请查看下方详情。", # 移除 LLM 生成的回答，只保留提示语
                     "chunks": self._extract_chunks(result),
                 }
             )
@@ -100,7 +100,7 @@ class _LoggingQueryEngine:
                     "tool": self._tool_name,
                     "status": "succeeded",
                     "progress": 100,
-                    "result": snippet[:2000],
+                    "result": "已检索到相关资料，请查看下方详情。", # 移除 LLM 生成的回答，只保留提示语
                     "chunks": self._extract_chunks(result),
                 }
             )
@@ -274,7 +274,12 @@ class FinancialKnowledgeBase:
             logger.error("RAG 索引未准备好，无法提供查询功能。")
             return None
 
-        query_engine = index.as_query_engine(similarity_top_k=3)
+        # 策略调整：
+        # 1. Top-K = 5: Qwen3-4B 有 8k 上下文，5个 chunk (约2.5k tokens) 完全可控。
+        #    增大 K 值有助于同时召回定义、公式和案例。
+        # 2. 不设置 similarity_cutoff: 观察到 BGE 模型在此数据集上得分较低(0.6左右)，
+        #    设置硬阈值容易导致漏召回。
+        query_engine = index.as_query_engine(similarity_top_k=5)
         self._query_engine = _LoggingQueryEngine(
             query_engine, tool_name="financial_theory_tool"
         )

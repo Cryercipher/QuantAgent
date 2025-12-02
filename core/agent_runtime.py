@@ -99,13 +99,16 @@ class AgentRuntime:
     def _setup_agent(self):
         knowledge_base = FinancialKnowledgeBase()
         theory_tool = knowledge_base.get_tool()
-        market_tool = MarketInsightTool(
-            cache_callback=self._cache_tool_result
-        ).get_tool()
+        
+        market_insight = MarketInsightTool(cache_callback=self._cache_tool_result)
+        market_tool = market_insight.get_tool()
+        search_tool = market_insight.get_search_tool() # 新增搜索工具
+        
         chart_tool = CandlestickChartTool(
             cache_callback=self._cache_tool_result
         ).get_tool()
-        tools = [tool for tool in [theory_tool, market_tool, chart_tool] if tool]
+        
+        tools = [tool for tool in [theory_tool, market_tool, search_tool, chart_tool] if tool]
         self._agent = ReActAgent(
             tools=tools,
             llm=Settings.llm,
