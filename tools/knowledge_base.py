@@ -1,8 +1,9 @@
 import chromadb
 import uuid
+import re
 from typing import Any, Dict, List
 from llama_index.core import (
-    SimpleDirectoryReader, VectorStoreIndex, StorageContext
+    SimpleDirectoryReader, VectorStoreIndex, StorageContext, Document
 )
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -181,11 +182,34 @@ class FinancialKnowledgeBase:
             if not any(RAG_SOURCE_DIR.iterdir()):
                 logger.warning(f"数据目录 {RAG_SOURCE_DIR} 为空！")
                 return None
-                
-            documents = SimpleDirectoryReader(str(RAG_SOURCE_DIR)).load_data()
+            
+            documents = []
+            # 遍历目录，针对特定文件使用自定义加载逻辑
+            for file_path in RAG_SOURCE_DIR.iterdir():
+                if file_path.name == "stock_doc_content.txt":
+                    logger.info(f"使用自定义加载器处理: {file_path.name}")
+                    documents.extend(self._load_stock_docs(file_path))
+                elif file_path.is_file() and not file_path.name.startswith("."):
+                    # 其他文件使用默认加载器
+                    logger.info(f"使用默认加载器处理: {file_path.name}")
+                    documents.extend(SimpleDirectoryReader(input_files=[str(file_path)]).load_data())
+
             nodes = self.node_parser.get_nodes_from_documents(documents)
+            
+            # Node 级别去重：解决不同逻辑页面包含相同段落导致的内容冗余
+            unique_nodes = []
+            seen_node_texts = set()
+            for node in nodes:
+                # 归一化文本：去除首尾空白
+                node_text = node.text.strip()
+                if node_text not in seen_node_texts:
+                    seen_node_texts.add(node_text)
+                    unique_nodes.append(node)
+            
+            logger.info(f"Node去重完成: 原始 {len(nodes)} -> 去重后 {len(unique_nodes)} (移除 {len(nodes) - len(unique_nodes)} 个重复片段)")
+
             index = VectorStoreIndex(
-                nodes,
+                unique_nodes,
                 storage_context=storage_context,
                 show_progress=True,
             )
@@ -196,6 +220,50 @@ class FinancialKnowledgeBase:
             )
         
         return index
+
+    def _load_stock_docs(self, file_path) -> List[Document]:
+        """
+        自定义加载器：针对 stock_doc_content.txt 的特殊结构进行两级切分。
+        第一级：按 xx_START_PAGE_xx 拆分逻辑页面并提取元数据。
+        第二级：返回 Document 对象，后续由 SentenceSplitter 进行语义切分。
+        """
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw_text = f.read()
+        except Exception as e:
+            logger.error(f"读取文件失败 {file_path}: {e}")
+            return []
+
+        # 匹配 xx_START_PAGE_xx ... xx_END_PAGE_xx 之间的内容
+        page_pattern = re.compile(r"xx_START_PAGE_xx\n(.*?)\nxx_END_PAGE_xx", re.DOTALL)
+        matches = page_pattern.findall(raw_text)
+        
+        documents = []
+        seen_texts = set() # 用于去重
+
+        for i, page_content in enumerate(matches):
+            lines = page_content.strip().split("\n")
+            metadata = {"source_idx": i, "file_name": file_path.name}
+            content_lines = []
+            
+            for line in lines:
+                if line.startswith("URL:"):
+                    metadata["url"] = line.replace("URL:", "").strip()
+                    metadata["source"] = metadata["url"] # 兼容 source 字段
+                elif line.startswith("TITLE:"):
+                    metadata["title"] = line.replace("TITLE:", "").strip()
+                else:
+                    content_lines.append(line)
+            
+            text = "\n".join(content_lines).strip()
+            
+            # 去重逻辑：如果正文内容完全一致，则视为重复文档
+            if text and text not in seen_texts:
+                seen_texts.add(text)
+                documents.append(Document(text=text, metadata=metadata))
+        
+        logger.info(f"自定义加载完成: {len(documents)} 个逻辑文档 (已去重 {len(matches) - len(documents)} 条)")
+        return documents
 
     def _ensure_query_engine(self):
         if self._query_engine is not None:
@@ -237,14 +305,11 @@ class FinancialKnowledgeBase:
                 # 名称必须与 Prompt 严格一致
                 name="financial_theory_tool",
                 description=(
-                    "【量化金融百科全书】用于查询金融市场的基础理论、机制和定义。\n"
-                    "涵盖内容包括：\n"
-                    "1. 市场微观结构：订单簿(Order Book)、撮合机制、订单类型(限价/市价/止损)、高频交易影响。\n"
-                    "2. 核心指标定义：风险(Risk)、波动率(Volatility)、流动性(Liquidity)、收益计算、Alpha/Beta。\n"
-                    "3. 策略与产品：量化对冲策略、金融衍生品、宏观经济影响。\n"
-                    "4. 数学基础：统计学核心、数据处理逻辑。\n"
-                    "【使用时机】当用户询问“什么是...”、“...的原理是什么”、“如何计算...”或需要策略理论支持时调用。\n"
-                    "【严格限制】此工具**仅包含静态理论**。它**不包含**任何特定股票（如茅台、英伟达）的今日价格、财报或实时新闻。涉及个股具体表现时，请移步 quant_analysis_tool。"
+                    "【金融理论与规则查询】这是你获取金融知识的唯一来源。\n"
+                    "无论用户问什么（包括'什么是股票'、'解释RSI'等基础问题），都**必须**先调用此工具。\n"
+                    "即使你认为问题很简单，也必须查询此工具以获得标准定义。\n"
+                    "即使问题是关于特定股票（如'茅台的RSI是多少'），你也必须先查此工具以获取'RSI的定义和判断标准'，然后再去查数据。\n"
+                    "包含：基础概念、交易机制、指标公式、风险模型、策略理论等。"
                 )
             ),
         )
