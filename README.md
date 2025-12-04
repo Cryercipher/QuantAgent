@@ -20,6 +20,9 @@ QuantAgent 是一个基于大语言模型（LLM）的量化金融智能助手，
 - **📊 交互式图表**
   - 自动生成近期 K 线图（支持均线、成交量）。
   - 图表直接嵌入对话流，直观展示市场走势。
+ 
+<img width="472" height="323" alt="image" src="https://github.com/user-attachments/assets/32657286-63de-44a5-ab52-00b768938f0a" />
+
 
 ## 📂 项目结构
 
@@ -96,9 +99,4 @@ python -m http.server 8080
 - **知识库更新**：
   将新的 `.txt` 或 `.md` 文件放入 `data/rules_text/`，重启服务后系统会自动重建索引。
 
-## 📝 更新日志
 
-- **Refactor**: 移除冗余模块 (FinRobot/FinNLP)，精简项目结构。
-- **Feature**: 新增原始行情数据表格展示，支持 OHLCV 完整字段。
-- **Fix**: 修复 Markdown 表格在前端的渲染问题。
-- **Opt**: 优化 System Prompt，适配 Qwen-4B 模型指令遵循能力。
