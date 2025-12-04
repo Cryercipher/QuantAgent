@@ -118,29 +118,6 @@ class _LoggingQueryEngine:
             )
             raise
 
-    def _log_source_nodes(self, result):
-        source_nodes = getattr(result, "source_nodes", [])
-        for idx, node in enumerate(source_nodes, start=1):
-            text = getattr(node, "text", "") or ""
-            meta = getattr(node, "metadata", {}) or {}
-            score = getattr(node, "score", None)
-            node_id = getattr(node, "node_id", "n/a")
-            meta_items = []
-            for key in ("file_name", "source", "topic"):
-                if key in meta:
-                    meta_items.append(f"{key}={meta[key]}")
-            meta_str = ", ".join(meta_items) if meta_items else "-"
-
-            logger.info(
-                "\n".join(
-                    [
-                        f"[RAGChunk #{idx}] score={score} node_id={node_id} meta={meta_str}",
-                        text,
-                        "[EndChunk]",
-                    ]
-                )
-            )
-
     def _extract_chunks(self, result) -> List[Dict[str, Any]]:
         source_nodes = getattr(result, "source_nodes", []) or []
         chunks: List[Dict[str, Any]] = []
@@ -284,20 +261,6 @@ class FinancialKnowledgeBase:
             query_engine, tool_name="financial_theory_tool"
         )
         return self._query_engine
-
-    def query_raw(self, query_text: str) -> str:
-        query_engine = self._ensure_query_engine()
-        if not query_engine:
-            return ""
-
-        try:
-            result = query_engine.query(query_text)
-            if hasattr(result, "response"):
-                return result.response or ""
-            return str(result)
-        except Exception as e:
-            logger.error(f"RAG 查询失败: {e}")
-            return ""
 
     def get_tool(self):
         logging_query_engine = self._ensure_query_engine()

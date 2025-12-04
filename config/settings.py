@@ -5,7 +5,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Tushare Token
-TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "d47f91ee6571a468cd4fae2f7396351260783b2de1370531d3eb5cc0")
+TUSHARE_TOKEN = os.getenv("TUSHARE_TOKEN", "")
 
 # 路径配置
 DATA_DIR = BASE_DIR / "data"
