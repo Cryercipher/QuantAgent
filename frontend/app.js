@@ -182,9 +182,6 @@ function renderToolPanel(toolRuns) {
       card.appendChild(summary);
       const body = document.createElement("div");
       body.className = "tool-result-body";
-      if (run.rawBars && run.rawBars.length) {
-        body.appendChild(renderRawBarsTable(run.rawBars));
-      }
       if (run.resultChunks && run.resultChunks.length) {
         body.appendChild(renderChunkList(run.resultChunks));
       }
@@ -239,62 +236,7 @@ function buildChartUrl(chartId) {
   return `${API_BASE}/api/charts/${chartId}`;
 }
 
-function renderRawBarsTable(bars) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "raw-bars-wrapper";
-  const table = document.createElement("table");
-  table.className = "raw-bars-table";
-  const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-  ["日期", "收盘", "涨跌幅", "成交量(手)"].forEach((label) => {
-    const th = document.createElement("th");
-    th.textContent = label;
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-
-  const tbody = document.createElement("tbody");
-  bars.forEach((bar) => {
-    const row = document.createElement("tr");
-    const fields = [
-      bar.date,
-      formatNumberCell(bar.close ?? bar.close_price),
-      formatPercentCell(bar.pct_chg ?? bar.change_pct),
-      formatVolumeCell(bar.volume ?? bar.vol),
-    ];
-    fields.forEach((value) => {
-      const td = document.createElement("td");
-      td.textContent = value;
-      row.appendChild(td);
-    });
-    tbody.appendChild(row);
-  });
-  table.appendChild(tbody);
-  wrapper.appendChild(table);
-  return wrapper;
-}
-
-function formatNumberCell(value) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-  return value.toFixed(2);
-}
-
-function formatPercentCell(value) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-  return `${value.toFixed(2)}%`;
-}
-
-function formatVolumeCell(value) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-  return Math.round(value).toLocaleString();
-}
+// 备注：raw_bars 数据依然通过 SSE 事件传回前端，可用于未来的可视化需求；为避免重复展示，当前不在工具面板中渲染。
 
 function renderChunkList(chunks) {
   const container = document.createElement("div");

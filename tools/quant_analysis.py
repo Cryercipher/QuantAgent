@@ -510,17 +510,25 @@ class MarketInsightTool:
         if df_raw is not None and not df_raw.empty:
             # 按日期降序排列，方便阅读
             df_raw = df_raw.sort_values("date", ascending=False)
-            raw_data_lines.append("| 日期 | 收盘 | 涨跌幅 | 成交量(手) |")
-            raw_data_lines.append("|---|---|---|---|")
+            raw_data_lines.append("| 日期 | 开盘 | 收盘 | 最高 | 最低 | 涨跌幅 | 成交量(手) |")
+            raw_data_lines.append("|---|---|---|---|---|---|---|")
             for _, row in df_raw.iterrows():
                 date_str = row["date"].strftime("%Y-%m-%d")
+                open_px = f"{row['open']:.2f}" if 'open' in row else "-"
                 close = f"{row['close']:.2f}"
+                high = f"{row['high']:.2f}" if 'high' in row else "-"
+                low = f"{row['low']:.2f}" if 'low' in row else "-"
                 pct = f"{row['pct_chg']:.2f}%" if 'pct_chg' in row else "-"
                 vol = f"{row['vol']:.0f}"
-                raw_data_lines.append(f"| {date_str} | {close} | {pct} | {vol} |")
+                raw_data_lines.append(
+                    f"| {date_str} | {open_px} | {close} | {high} | {low} | {pct} | {vol} |"
+                )
                 raw_rows.append(
                     {
                         "date": date_str,
+                        "open": float(row.get("open", np.nan)),
+                        "high": float(row.get("high", np.nan)),
+                        "low": float(row.get("low", np.nan)),
                         "close": float(row.get("close", np.nan)),
                         "pct_chg": float(row.get("pct_chg", np.nan)),
                         "volume": float(row.get("vol", np.nan)),
