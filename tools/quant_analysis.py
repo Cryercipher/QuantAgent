@@ -432,9 +432,6 @@ class QuantAnalyzer:
             ]
         )
 
-        report_lines.append(
-            "\n解读建议：结合 RAG 理论摘要与上述行情/风险指标，评估估值及仓位安排，必要时搭配止损和分批策略。"
-        )
         report = "\n".join(report_lines)
         summary = (
             f"{display_name} 收盘 {_format_num(latest.get('close'))} 元，"
@@ -464,7 +461,7 @@ class MarketInsightTool:
             data_manager=self.market_manager,
         )
 
-    def _analyze_stock_sync(self, stock_name: str, days_ago: int) -> str:
+    def _analyze_stock_sync(self, stock_name: str, start_date: str | None = None, end_date: str | None = None) -> str:
         stock_meta = self.market_manager.resolve_stock(stock_name)
         if not stock_meta:
             return f"未找到与“{stock_name}”匹配的标的，请输入更精确的名称或代码。"
@@ -472,17 +469,58 @@ class MarketInsightTool:
         ts_code = stock_meta["ts_code"]
         display_name = stock_meta.get("name", stock_name)
 
+        # 1. 获取通用行情快照 (默认近30天，用于宏观概览)
         market_payload = self.market_manager.get_stock_market_data(
             display_name,
-            days_ago=days_ago,
+            days_ago=30,
             ts_code=ts_code,
             include_raw=True,
         )
         if isinstance(market_payload, tuple):
-            market_section, raw_bars = market_payload
+            market_section, _ = market_payload
         else:
-            market_section, raw_bars = market_payload, []
+            market_section = market_payload
+
+        # 2. 获取量化分析报告
         quant_section = self.quant_analyzer.analyze_asset_risk(display_name)
+
+        # 3. 获取指定窗口的原始数据 (解决"某一天股价是多少"的问题)
+        # 默认窗口：最近7天
+        today = datetime.now()
+        
+        def _parse_date(d_str):
+            if not d_str: return None
+            for fmt in ("%Y%m%d", "%Y-%m-%d"):
+                try:
+                    return datetime.strptime(d_str, fmt)
+                except ValueError:
+                    continue
+            return None
+
+        end_dt = _parse_date(end_date) or today
+        start_dt = _parse_date(start_date) or (end_dt - timedelta(days=7))
+        
+        q_start = start_dt.strftime("%Y%m%d")
+        q_end = end_dt.strftime("%Y%m%d")
+        
+        df_raw = self.market_manager.get_price_frame(ts_code, q_start, q_end)
+        
+        raw_data_lines = [f"【原始行情数据 ({q_start} ~ {q_end})】", ""]
+        if df_raw is not None and not df_raw.empty:
+            # 按日期降序排列，方便阅读
+            df_raw = df_raw.sort_values("date", ascending=False)
+            raw_data_lines.append("| 日期 | 收盘 | 涨跌幅 | 成交量(手) |")
+            raw_data_lines.append("|---|---|---|---|")
+            for _, row in df_raw.iterrows():
+                date_str = row["date"].strftime("%Y-%m-%d")
+                close = f"{row['close']:.2f}"
+                pct = f"{row['pct_chg']:.2f}%" if 'pct_chg' in row else "-"
+                vol = f"{row['vol']:.0f}"
+                raw_data_lines.append(f"| {date_str} | {close} | {pct} | {vol} |")
+        else:
+            raw_data_lines.append("该时间段内无交易数据。")
+            
+        raw_data_section = "\n".join(raw_data_lines)
 
         segments = [
             "【基础行情速览】",
@@ -490,12 +528,16 @@ class MarketInsightTool:
             "",
             "【量化风险分析】",
             (quant_section or "暂无量化分析结果").strip(),
+            "",
+            raw_data_section
         ]
 
         report = "\n".join(seg for seg in segments if seg)
-        return report, {"raw_bars": raw_bars}
+        # 注意：这里不再返回 raw_bars 给前端绘图，因为前端绘图逻辑可能需要调整适配
+        # 但为了兼容性，可以尝试返回 df_raw 的字典形式，或者暂时留空
+        return report, {}
 
-    async def analyze_stock(self, stock_name: str, days_ago: int = 30) -> str:
+    async def analyze_stock(self, stock_name: str, start_date: str = None, end_date: str = None) -> str:
         call_id = uuid.uuid4().hex
         publish_event(
             {
@@ -504,13 +546,13 @@ class MarketInsightTool:
                 "tool": "quant_analysis_tool",
                 "status": "running",
                 "progress": 20,
-                "meta": {"stock": stock_name, "window": days_ago},
+                "meta": {"stock": stock_name, "start": start_date, "end": end_date},
             }
         )
         loop = asyncio.get_running_loop()
         try:
-            report, extras = await loop.run_in_executor(
-                None, self._analyze_stock_sync, stock_name, days_ago
+            report, _ = await loop.run_in_executor(
+                None, self._analyze_stock_sync, stock_name, start_date, end_date
             )
         except Exception as exc:
             publish_event(
@@ -525,7 +567,6 @@ class MarketInsightTool:
             )
             raise
 
-        raw_bars = (extras or {}).get("raw_bars", []) if isinstance(extras, dict) else []
         publish_event(
             {
                 "type": "tool_result",
@@ -533,8 +574,7 @@ class MarketInsightTool:
                 "tool": "quant_analysis_tool",
                 "status": "succeeded",
                 "progress": 100,
-                "result": report[:2000],
-                "raw_bars": raw_bars,
+                "result": report, # 取消截断，确保前端能完整渲染 Markdown 表格
             }
         )
         return report
@@ -546,6 +586,8 @@ class MarketInsightTool:
             description=(
                 "整合行情快照与量化风险指标的综合分析工具。"
                 "输入股票名称后，自动输出当日价格、均线等关键信息并附带年度波动、VaR、回撤等高级量化结论。"
+                "**支持查询指定日期范围的原始行情数据**。若用户询问具体某日的股价（如'上周五收盘价'），"
+                "请在参数中指定 start_date 和 end_date (格式 YYYYMMDD)。默认返回最近7天数据。"
             ),
         )
 

@@ -145,7 +145,7 @@ class _LoggingQueryEngine:
         source_nodes = getattr(result, "source_nodes", []) or []
         chunks: List[Dict[str, Any]] = []
         for idx, node in enumerate(source_nodes, start=1):
-            text = (getattr(node, "text", "") or "")[:256]
+            text = (getattr(node, "text", "") or "")
             metadata = self._sanitize_metadata(getattr(node, "metadata", {}) or {})
             chunks.append(
                 {

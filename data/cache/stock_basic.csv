@@ -440,7 +440,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 001229.SZ,001229,魅视科技,广东魅视科技股份有限公司,"Guangdong AVCiT Technology Holding Co., Ltd.",广东,IT设备,meishikeji,guangdongavcittechnologyholdingcoltd
 001230.SZ,001230,劲旅环境,劲旅环境科技股份有限公司,"Jinglv Environment Science and Technology Co.,Ltd.",安徽,环境保护,jinglvhuanjing,jinglvenvironmentscienceandtechnologycoltd
 001231.SZ,001231,农心科技,农心作物科技股份有限公司,"Norsyn Crop Technology Co., Ltd.",陕西,农药化肥,nongxinkeji,norsyncroptechnologycoltd
-001233.SZ,001233,C海安,海安橡胶集团股份公司,"Haian Rubber Group Co., Ltd.",福建,汽车配件,chaian,haianrubbergroupcoltd
+001233.SZ,001233,海安集团,海安橡胶集团股份公司,"Haian Rubber Group Co., Ltd.",福建,汽车配件,haianjituan,haianrubbergroupcoltd
 001234.SZ,001234,泰慕士,江苏泰慕士针纺科技股份有限公司,"Jiangsu Times Textile Technology Co.,Ltd",江苏,服饰,taimushi,jiangsutimestextiletechnologycoltd
 001236.SZ,001236,弘业期货,苏豪弘业期货股份有限公司,"Soho Holly Futures Co., Ltd.",江苏,多元金融,hongyeqihuo,sohohollyfuturescoltd
 001238.SZ,001238,浙江正特,浙江正特股份有限公司,"Zhejiang Zhengte Co.,Ltd.",浙江,家居用品,zhejiangzhengte,zhejiangzhengtecoltd
@@ -458,6 +458,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 001277.SZ,001277,速达股份,郑州速达工业机械服务股份有限公司,"Zhengzhou Suda Industry Machinery Service Co., Ltd.",河南,专用机械,sudagufen,zhengzhousudaindustrymachineryservicecoltd
 001278.SZ,001278,一彬科技,宁波一彬电子科技股份有限公司,"Ningbo Yibin Electronic Technology Co.,Ltd.",浙江,汽车配件,yibinkeji,ningboyibinelectronictechnologycoltd
 001279.SZ,001279,强邦新材,安徽强邦新材料股份有限公司,"Anhui Strong State New Materials Co., Ltd.",安徽,广告包装,qiangbangxincai,anhuistrongstatenewmaterialscoltd
+001280.SZ,001280,N中国铀,中国铀业股份有限公司,"China National Uranium Co., Ltd.",北京,小金属,nzhongguoyou,chinanationaluraniumcoltd
 001282.SZ,001282,三联锻造,芜湖三联锻造股份有限公司,"Wuhu Sanlian Forging Co., Ltd.",安徽,汽车配件,sanlianduanzao,wuhusanlianforgingcoltd
 001283.SZ,001283,豪鹏科技,深圳市豪鹏科技股份有限公司,"Shenzhen Highpower Technology Co.,Ltd.",深圳,电气设备,haopengkeji,shenzhenhighpowertechnologycoltd
 001285.SZ,001285,瑞立科密,广州瑞立科密汽车电子股份有限公司,"Guangzhou Ruili Kormee Automotive Electronic Co.,Ltd.",广东,汽车配件,ruilikemi,guangzhouruilikormeeautomotiveelectroniccoltd
@@ -1164,7 +1165,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 002686.SZ,002686,亿利达,浙江亿利达风机股份有限公司,"Zhejiang Yilida Ventilator Co.,Ltd.",浙江,专用机械,yilida,zhejiangyilidaventilatorcoltd
 002687.SZ,002687,乔治白,浙江乔治白服饰股份有限公司,"Zhejiang Giuseppe Garment Co., Ltd",浙江,服饰,qiaozhibai,zhejianggiuseppegarmentcoltd
 002688.SZ,002688,金河生物,金河生物科技股份有限公司,"Jinhe Biotechnology Co.,Ltd.",内蒙,农业综合,jinheshengwu,jinhebiotechnologycoltd
-002689.SZ,002689,远大智能,沈阳远大智能工业集团股份有限公司,"Shenyang Yuanda Intellectual Industry Group Co.,Ltd",辽宁,运输设备,yuandazhineng,shenyangyuandaintellectualindustrygroupcoltd
+002689.SZ,002689,ST远智,沈阳远大智能工业集团股份有限公司,"Shenyang Yuanda Intellectual Industry Group Co.,Ltd",辽宁,运输设备,styuanzhi,shenyangyuandaintellectualindustrygroupcoltd
 002690.SZ,002690,美亚光电,合肥美亚光电技术股份有限公司,Hefei Meyer Optoelectronic Technology Inc.,安徽,专用机械,meiyaguangdian,hefeimeyeroptoelectronictechnologyinc
 002691.SZ,002691,冀凯股份,冀凯装备制造股份有限公司,"Jikai Equipment Manufacturing Co., Ltd.",河北,专用机械,jikaigufen,jikaiequipmentmanufacturingcoltd
 002692.SZ,002692,远程股份,远程电缆股份有限公司,"Yuancheng Cable Co.,Ltd.",江苏,电气设备,yuanchenggufen,yuanchengcablecoltd
@@ -1800,7 +1801,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 300341.SZ,300341,麦克奥迪,麦克奥迪(厦门)电气股份有限公司,"Motic (Xiamen) Electric Group Co.,Ltd",福建,电气设备,maikeaodi,moticxiamenelectricgroupcoltd
 300342.SZ,300342,天银机电,常熟市天银机电股份有限公司,"Changshu Tianyin Electromechanical Co.,Ltd",江苏,家用电器,tianyinjidian,changshutianyinelectromechanicalcoltd
 300343.SZ,300343,ST联创,山东联创产业发展集团股份有限公司,Lecron Industrial Development Group Co. Ltd,山东,化工原料,stlianchuang,lecronindustrialdevelopmentgroupcoltd
-300344.SZ,300344,ST立方,立方数科股份有限公司,"Cubic Digital Technology Co.,Ltd.",安徽,软件服务,stlifang,cubicdigitaltechnologycoltd
+300344.SZ,300344,*ST立方,立方数科股份有限公司,"Cubic Digital Technology Co.,Ltd.",安徽,软件服务,*stlifang,cubicdigitaltechnologycoltd
 300345.SZ,300345,华民股份,湖南华民控股集团股份有限公司,"Hunan Huamin Holdings Co.,Ltd",湖南,电气设备,huamingufen,hunanhuaminholdingscoltd
 300346.SZ,300346,南大光电,江苏南大光电材料股份有限公司,"Jiangsu Nata Opto-Electronic Material Co.,Ltd.",江苏,半导体,nandaguangdian,jiangsunataoptoelectronicmaterialcoltd
 300347.SZ,300347,泰格医药,杭州泰格医药科技股份有限公司,"Hangzhou Tigermed Consulting Co., Ltd",浙江,医疗保健,taigeyiyao,hangzhoutigermedconsultingcoltd
@@ -2610,7 +2611,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 301207.SZ,301207,华兰疫苗,华兰生物疫苗股份有限公司,Hualan Biological Vaccine Inc.,河南,生物制药,hualanyimiao,hualanbiologicalvaccineinc
 301208.SZ,301208,中亦科技,北京中亦安图科技股份有限公司,"Chinaetek Service&Technology Co., Ltd.",北京,软件服务,zhongyikeji,chinaetekservicetechnologycoltd
 301209.SZ,301209,联合化学,龙口联合化学股份有限公司,"Longkou Union Chemical Co., Ltd.",山东,染料涂料,lianhehuaxue,longkouunionchemicalcoltd
-301210.SZ,301210,金杨股份,无锡市金杨新材料股份有限公司,"Wuxi Jinyang New Materials Co.,Ltd.",江苏,电气设备,jinyanggufen,wuxijinyangnewmaterialscoltd
+301210.SZ,301210,金杨精密,无锡金杨精密制造股份有限公司,"Wuxi Jinyang Precision Manufacturing Co., Ltd.",江苏,电气设备,jinyangjingmi,wuxijinyangprecisionmanufacturingcoltd
 301211.SZ,301211,亨迪药业,湖北亨迪药业股份有限公司,"Hubei Biocause Heilen Pharmaceutical Co., Ltd",湖北,化学制药,hengdiyaoye,hubeibiocauseheilenpharmaceuticalcoltd
 301212.SZ,301212,联盛化学,浙江联盛化学股份有限公司,"Zhejiang Realsun Chemical Co.,Ltd.",浙江,化工原料,lianshenghuaxue,zhejiangrealsunchemicalcoltd
 301213.SZ,301213,观想科技,四川观想科技股份有限公司,"Sichuan Discovery Dream Science&Technology Co.,Ltd.",四川,软件服务,guanxiangkeji,sichuandiscoverydreamsciencetechnologycoltd
@@ -3008,7 +3009,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 600176.SH,600176,中国巨石,中国巨石股份有限公司,"China Jushi Co.,Ltd",浙江,玻璃,zhongguojushi,chinajushicoltd
 600177.SH,600177,雅戈尔,雅戈尔时尚股份有限公司,"Youngor Fashion Co., Ltd.",浙江,服饰,yageer,youngorfashioncoltd
 600178.SH,600178,东安动力,哈尔滨东安汽车动力股份有限公司,"Harbin Dongan Auto Engine Co.,Ltd",黑龙江,汽车配件,dongandongli,harbindonganautoenginecoltd
-600179.SH,600179,安通控股,安通控股股份有限公司,"Antong Holdings Co., Ltd.",黑龙江,水运,antongkonggu,antongholdingscoltd
+600179.SH,600179,安通控股,安通控股股份有限公司,"Antong Holdings Co., Ltd.",福建,水运,antongkonggu,antongholdingscoltd
 600180.SH,600180,瑞茂通,瑞茂通供应链管理股份有限公司,"CCS Supply Chain Management Co., Ltd.",山东,仓储物流,ruimaotong,ccssupplychainmanagementcoltd
 600182.SH,600182,S佳通,佳通轮胎股份有限公司,Giti Tire Corporation,黑龙江,汽车配件,sjiatong,gititirecorporation
 600183.SH,600183,生益科技,广东生益科技股份有限公司,"Shengyi Technology Co.,Ltd.",广东,元器件,shengyikeji,shengyitechnologycoltd
@@ -4533,7 +4534,7 @@ ts_code,symbol,name,fullname,enname,area,industry,name_pinyin,enname_norm
 605266.SH,605266,健之佳,健之佳医药连锁集团股份有限公司,JZJ Chain Drugstore Corporation,云南,医药商业,jianzhijia,jzjchaindrugstorecorporation
 605268.SH,605268,王力安防,王力安防科技股份有限公司,"Wangli Security & Surveillance Product Co., Ltd",浙江,家居用品,wanglianfang,wanglisecuritysurveillanceproductcoltd
 605277.SH,605277,新亚电子,新亚电子股份有限公司,"Xinya Electronic Co., Ltd",浙江,元器件,xinyadianzi,xinyaelectroniccoltd
-605286.SH,605286,同力日升,江苏同力日升机械股份有限公司,"Jiangsu Tongli Risheng Machinery Co., Ltd.",江苏,运输设备,tonglirisheng,jiangsutonglirishengmachinerycoltd
+605286.SH,605286,同力日升,江苏同力天启科技股份有限公司,"Jiangsu Tongli Tianqi Technology Co., Ltd.",江苏,运输设备,tonglirisheng,jiangsutonglitianqitechnologycoltd
 605287.SH,605287,德才股份,德才装饰股份有限公司,"Decai Decoration Co.,Ltd",山东,装修装饰,decaigufen,decaidecorationcoltd
 605288.SH,605288,凯迪股份,常州市凯迪电器股份有限公司,ChangZhou KAIDI Electrical Inc.,江苏,电气设备,kaidigufen,changzhoukaidielectricalinc
 605289.SH,605289,罗曼股份,上海罗曼科技股份有限公司,Shanghai Luoman Technologies Inc.,上海,建筑工程,luomangufen,shanghailuomantechnologiesinc
