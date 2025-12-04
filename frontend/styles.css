@@ -470,3 +470,27 @@ body {
     min-width: 240px;
   }
 }
+
+/* Markdown Table Styles */
+.message-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: var(--text);
+  margin: 14px 0;
+}
+
+.message-body table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.message-body table th,
+.message-body table td {
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
+}
+
+.message-body table tbody tr:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.02);
+}

@@ -504,6 +504,7 @@ class MarketInsightTool:
         q_end = end_dt.strftime("%Y%m%d")
         
         df_raw = self.market_manager.get_price_frame(ts_code, q_start, q_end)
+        raw_rows: List[Dict[str, Any]] = []
         
         raw_data_lines = [f"【原始行情数据 ({q_start} ~ {q_end})】", ""]
         if df_raw is not None and not df_raw.empty:
@@ -517,6 +518,14 @@ class MarketInsightTool:
                 pct = f"{row['pct_chg']:.2f}%" if 'pct_chg' in row else "-"
                 vol = f"{row['vol']:.0f}"
                 raw_data_lines.append(f"| {date_str} | {close} | {pct} | {vol} |")
+                raw_rows.append(
+                    {
+                        "date": date_str,
+                        "close": float(row.get("close", np.nan)),
+                        "pct_chg": float(row.get("pct_chg", np.nan)),
+                        "volume": float(row.get("vol", np.nan)),
+                    }
+                )
         else:
             raw_data_lines.append("该时间段内无交易数据。")
             
@@ -525,17 +534,13 @@ class MarketInsightTool:
         segments = [
             "【基础行情速览】",
             (market_section or "暂无行情数据").strip(),
-            "",
             "【量化风险分析】",
             (quant_section or "暂无量化分析结果").strip(),
-            "",
             raw_data_section
         ]
 
-        report = "\n".join(seg for seg in segments if seg)
-        # 注意：这里不再返回 raw_bars 给前端绘图，因为前端绘图逻辑可能需要调整适配
-        # 但为了兼容性，可以尝试返回 df_raw 的字典形式，或者暂时留空
-        return report, {}
+        report = "\n\n".join(seg for seg in segments if seg)
+        return report, raw_rows
 
     async def analyze_stock(self, stock_name: str, start_date: str = None, end_date: str = None) -> str:
         call_id = uuid.uuid4().hex
@@ -551,7 +556,7 @@ class MarketInsightTool:
         )
         loop = asyncio.get_running_loop()
         try:
-            report, _ = await loop.run_in_executor(
+            report, raw_rows = await loop.run_in_executor(
                 None, self._analyze_stock_sync, stock_name, start_date, end_date
             )
         except Exception as exc:
@@ -567,16 +572,18 @@ class MarketInsightTool:
             )
             raise
 
-        publish_event(
-            {
-                "type": "tool_result",
-                "call_id": call_id,
-                "tool": "quant_analysis_tool",
-                "status": "succeeded",
-                "progress": 100,
-                "result": report, # 取消截断，确保前端能完整渲染 Markdown 表格
-            }
-        )
+        event_payload = {
+            "type": "tool_result",
+            "call_id": call_id,
+            "tool": "quant_analysis_tool",
+            "status": "succeeded",
+            "progress": 100,
+            "result": report,
+        }
+        if raw_rows:
+            event_payload["raw_bars"] = raw_rows
+
+        publish_event(event_payload)
         return report
 
     def get_tool(self):

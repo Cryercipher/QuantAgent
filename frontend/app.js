@@ -246,7 +246,7 @@ function renderRawBarsTable(bars) {
   table.className = "raw-bars-table";
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  ["日期", "开盘", "收盘", "最高", "最低", "成交量"].forEach((label) => {
+  ["日期", "收盘", "涨跌幅", "成交量(手)"].forEach((label) => {
     const th = document.createElement("th");
     th.textContent = label;
     headerRow.appendChild(th);
@@ -259,11 +259,9 @@ function renderRawBarsTable(bars) {
     const row = document.createElement("tr");
     const fields = [
       bar.date,
-      formatNumberCell(bar.open),
-      formatNumberCell(bar.close),
-      formatNumberCell(bar.high),
-      formatNumberCell(bar.low),
-      formatVolumeCell(bar.volume),
+      formatNumberCell(bar.close ?? bar.close_price),
+      formatPercentCell(bar.pct_chg ?? bar.change_pct),
+      formatVolumeCell(bar.volume ?? bar.vol),
     ];
     fields.forEach((value) => {
       const td = document.createElement("td");
@@ -282,6 +280,13 @@ function formatNumberCell(value) {
     return "-";
   }
   return value.toFixed(2);
+}
+
+function formatPercentCell(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+  return `${value.toFixed(2)}%`;
 }
 
 function formatVolumeCell(value) {
